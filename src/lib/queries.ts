@@ -208,7 +208,7 @@ export async function getBusinessRadar(companyId: number) {
 
   const revenueByProduct: Record<number, { revenue: number; orders: number }> = {};
   for (const row of adsWithMetrics) {
-    revenueByProduct[row.product_id] = { revenue: row.revenue || 0, orders: row.orders || 0 };
+    revenueByProduct[row.product_id] = { revenue: Number(row.revenue) || 0, orders: Number(row.orders) || 0 };
   }
 
   const enriched = products.map((p) => {
@@ -252,12 +252,12 @@ export async function getMarketplacePerformance(companyId: number) {
 
       const totals = metrics.reduce(
         (acc, m) => ({
-          impressions: acc.impressions + m.impressions,
-          views: acc.views + m.views,
-          visits: acc.visits + m.visits,
-          clicks: acc.clicks + m.clicks,
-          orders: acc.orders + m.orders,
-          revenue: acc.revenue + m.revenue,
+          impressions: acc.impressions + Number(m.impressions),
+          views: acc.views + Number(m.views),
+          visits: acc.visits + Number(m.visits),
+          clicks: acc.clicks + Number(m.clicks),
+          orders: acc.orders + Number(m.orders),
+          revenue: acc.revenue + Number(m.revenue),
         }),
         { impressions: 0, views: 0, visits: 0, clicks: 0, orders: 0, revenue: 0 }
       );
@@ -275,12 +275,20 @@ export async function getMarketplacePerformance(companyId: number) {
         [...days30, mp.id]
       );
 
+      const adsNumeric = ads.map((a) => ({
+        ...a,
+        revenue: Number(a.revenue) || 0,
+        orders: Number(a.orders) || 0,
+        clicks: Number(a.clicks) || 0,
+        impressions: Number(a.impressions) || 0,
+      }));
+
       return {
         ...mp,
-        chart: metrics.map((m) => ({ date: m.date.slice(5), revenue: m.revenue, orders: m.orders })),
+        chart: metrics.map((m) => ({ date: m.date.slice(5), revenue: Number(m.revenue), orders: Number(m.orders) })),
         totals: { ...totals, ctr: +ctr.toFixed(2), conversion: +conversion.toFixed(2) },
-        topAds: ads.slice(0, 5),
-        worstAds: [...ads].sort((a, b) => a.health_score - b.health_score).slice(0, 5),
+        topAds: adsNumeric.slice(0, 5),
+        worstAds: [...adsNumeric].sort((a, b) => a.health_score - b.health_score).slice(0, 5),
       };
     })
   );
