@@ -22,6 +22,37 @@ export default function SettingsClient({
   const [tab, setTab] = useState<Tab>("empresa");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+  const [deletingProducts, setDeletingProducts] = useState(false);
+
+  function toggleProductSelection(id: number) {
+    setSelectedProductIds((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    );
+  }
+
+  function toggleSelectAllProducts() {
+    setSelectedProductIds((prev) =>
+      prev.length === products.length ? [] : products.map((p) => p.id)
+    );
+  }
+
+  async function handleDeleteSelectedProducts() {
+    if (selectedProductIds.length === 0) return;
+    if (!confirm(`Excluir ${selectedProductIds.length} produto(s) selecionado(s)? Essa ação não pode ser desfeita.`)) return;
+    setDeletingProducts(true);
+    try {
+      await fetch("/api/products", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedProductIds }),
+      });
+      setSelectedProductIds([]);
+      router.refresh();
+    } finally {
+      setDeletingProducts(false);
+    }
+  }
 
   useEffect(() => {
     if (searchParams.get("tab") === "integracoes") {
@@ -223,13 +254,48 @@ export default function SettingsClient({
           </form>
 
           <div className="card p-6">
-            <p className="text-sm font-medium text-[#F5F3EF]/80 mb-4">Produtos ({products.length})</p>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <p className="text-sm font-medium text-[#F5F3EF]/80">Produtos ({products.length})</p>
+                {products.length > 0 && (
+                  <label className="flex items-center gap-2 text-xs text-[#F5F3EF]/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedProductIds.length === products.length}
+                      onChange={toggleSelectAllProducts}
+                      className="accent-[#FF6B00]"
+                    />
+                    Selecionar todos
+                  </label>
+                )}
+              </div>
+              {selectedProductIds.length > 0 && (
+                <button
+                  onClick={handleDeleteSelectedProducts}
+                  disabled={deletingProducts}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 transition disabled:opacity-50"
+                >
+                  {deletingProducts ? "Excluindo..." : `Excluir ${selectedProductIds.length} selecionado(s)`}
+                </button>
+              )}
+            </div>
             <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin">
               {products.map((p) => (
-                <div key={p.id} className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-sm">{p.name}</span>
-                  <span className="text-xs text-[#F5F3EF]/40">{p.category} · estoque {p.stock}</span>
-                </div>
+                <label
+                  key={p.id}
+                  className="flex items-center gap-3 justify-between border-b border-white/5 pb-2 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedProductIds.includes(p.id)}
+                      onChange={() => toggleProductSelection(p.id)}
+                      className="accent-[#FF6B00]"
+                    />
+                    <span className="text-sm truncate">{p.name}</span>
+                  </div>
+                  <span className="text-xs text-[#F5F3EF]/40 shrink-0">{p.category} · estoque {p.stock}</span>
+                </label>
               ))}
             </div>
           </div>
