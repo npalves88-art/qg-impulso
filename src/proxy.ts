@@ -11,8 +11,9 @@ const PUBLIC_PATHS = ["/login", "/api/auth/login"];
 // Server-to-server webhooks from marketplaces — no browser session cookie is sent.
 const PUBLIC_PATH_SUFFIXES = ["/notifications"];
 
-// Restricted to Administrador only — other roles get bounced to the dashboard.
-const ADMIN_ONLY_PATHS = ["/anuncio-turbo", "/radar-equipe"];
+// Operador is restricted to this exact set of pages — nothing else.
+const OPERADOR_ALLOWED_PATHS = ["/anuncio-turbo", "/radar-equipe", "/ia-impulso", "/alterar-senha"];
+const OPERADOR_DEFAULT_PATH = "/anuncio-turbo";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -43,8 +44,12 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (ADMIN_ONLY_PATHS.some((p) => pathname.startsWith(p)) && payload.role !== "Administrador") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+  if (
+    payload.role === "Operador" &&
+    !pathname.startsWith("/api/") &&
+    !OPERADOR_ALLOWED_PATHS.some((p) => pathname.startsWith(p))
+  ) {
+    return NextResponse.redirect(new URL(OPERADOR_DEFAULT_PATH, req.url));
   }
 
   return NextResponse.next();

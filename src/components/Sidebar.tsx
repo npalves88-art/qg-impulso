@@ -12,19 +12,28 @@ import {
   Gauge,
   Bot,
   Settings,
+  KeyRound,
   LogOut,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard Executivo", icon: LayoutDashboard },
-  { href: "/anuncio-turbo", label: "Anúncio Turbo", icon: Megaphone, adminOnly: true },
-  { href: "/radar-equipe", label: "Radar Equipe", icon: Users, adminOnly: true },
+  { href: "/anuncio-turbo", label: "Anúncio Turbo", icon: Megaphone },
+  { href: "/radar-equipe", label: "Radar Equipe", icon: Users },
   { href: "/radar-operacional", label: "Radar Operacional", icon: ShieldAlert },
   { href: "/radar-negocio", label: "Radar Negócio", icon: TrendingUp },
   { href: "/performance-marketplace", label: "Performance Marketplace", icon: Store },
   { href: "/central-indicadores", label: "Central de Indicadores", icon: Gauge },
   { href: "/ia-impulso", label: "IA Impulso", icon: Bot },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
+];
+
+// Operador only sees this subset (matches the proxy.ts allowlist).
+const OPERADOR_NAV_ITEMS = [
+  { href: "/anuncio-turbo", label: "Anúncio Turbo", icon: Megaphone },
+  { href: "/radar-equipe", label: "Radar Equipe", icon: Users },
+  { href: "/ia-impulso", label: "IA Impulso", icon: Bot },
+  { href: "/alterar-senha", label: "Alterar Senha", icon: KeyRound },
 ];
 
 export default function Sidebar({
@@ -34,6 +43,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const items = user.role === "Operador" ? OPERADOR_NAV_ITEMS : NAV_ITEMS;
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -54,7 +64,7 @@ export default function Sidebar({
       </div>
 
       <nav className="flex-1 px-3 mt-2 space-y-1 overflow-y-auto scrollbar-thin">
-        {NAV_ITEMS.filter((item) => !item.adminOnly || user.role === "Administrador").map((item) => {
+        {items.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
           return (
