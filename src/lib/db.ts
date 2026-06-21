@@ -683,8 +683,13 @@ export async function query<T = any>(sql: string, params?: any[], attempt = 1): 
     return result.rows as T[];
   } catch (err: any) {
     const code = err?.code as string | undefined;
-    if (code && TRANSIENT_ERROR_CODES.has(code) && attempt < 3) {
-      await sleep(300 * attempt);
+    const message = String(err?.message || "");
+    const isTransient =
+      (code && TRANSIENT_ERROR_CODES.has(code)) ||
+      message.includes("timeout") ||
+      message.includes("Connection terminated");
+    if (isTransient && attempt < 3) {
+      await sleep(400 * attempt);
       return query<T>(sql, params, attempt + 1);
     }
     throw err;
