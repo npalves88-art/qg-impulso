@@ -199,6 +199,15 @@ async function createSchema(pool: Pool) {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS processed_orders (
+      id SERIAL PRIMARY KEY,
+      marketplace TEXT NOT NULL,
+      external_order_id TEXT NOT NULL,
+      company_id INTEGER NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(marketplace, external_order_id)
+    );
+
     CREATE TABLE IF NOT EXISTS employee_clients (
       id SERIAL PRIMARY KEY,
       employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,

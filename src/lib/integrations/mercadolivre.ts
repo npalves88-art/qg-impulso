@@ -197,9 +197,16 @@ export async function syncMercadoLivre(companyId: number) {
     }
   }
 
-  const summary = `${importedAds} anúncio(s) e ${importedMetrics} métrica(s) sincronizados.`;
+  let importedOrders = 0;
+  try {
+    importedOrders = await syncMercadoLivreOrders(companyId);
+  } catch (err) {
+    console.error("Erro ao sincronizar histórico de pedidos do Mercado Livre:", err);
+  }
+
+  const summary = `${importedAds} anúncio(s), ${importedMetrics} métrica(s) e ${importedOrders} pedido(s) sincronizados.`;
   await recordSync(companyId, "mercado_livre", summary);
-  return { importedAds, importedMetrics, summary };
+  return { importedAds, importedMetrics, importedOrders, summary };
 }
 
 export async function fetchItem(accessToken: string, itemId: string) {
@@ -223,8 +230,20 @@ export async function getIntegrationBySellerId(sellerId: string) {
 }
 
 export async function recordOrderUpdate(companyId: number, order: any) {
+  const orderIdStr = String(order.id);
+  const already = await query<{ id: number }>(
+    `SELECT id FROM processed_orders WHERE marketplace = 'mercado_livre' AND external_order_id = $1`,
+    [orderIdStr]
+  );
+  if (already.length > 0) return;
+
   const orderItem = order.order_items?.[0];
   if (!orderItem) return;
+
+  await query(
+    `INSERT INTO processed_orders (marketplace, external_order_id, company_id) VALUES ('mercado_livre', $1, $2)`,
+    [orderIdStr, companyId]
+  );
 
   const { adId } = await upsertProductAndAdFromItem(companyId, {
     title: orderItem.item.title,
@@ -233,11 +252,11 @@ export async function recordOrderUpdate(companyId: number, order: any) {
     status: "active",
   });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const date = order.date_created ? String(order.date_created).slice(0, 10) : new Date().toISOString().slice(0, 10);
   const revenue = order.total_amount || orderItem.unit_price * orderItem.quantity;
 
   const existingMetric = (
-    await query<{ id: number }>(`SELECT id FROM ad_metrics WHERE ad_id = $1 AND date = $2`, [adId, today])
+    await query<{ id: number }>(`SELECT id FROM ad_metrics WHERE ad_id = $1 AND date = $2`, [adId, date])
   )[0];
 
   if (existingMetric) {
@@ -249,7 +268,7 @@ export async function recordOrderUpdate(companyId: number, order: any) {
     await query(
       `INSERT INTO ad_metrics (ad_id, date, impressions, views, visits, clicks, orders, revenue)
        VALUES ($1, $2, 0, 0, 0, 0, 1, $3)`,
-      [adId, today, revenue]
+      [adId, date, revenue]
     );
   }
 
@@ -257,9 +276,46 @@ export async function recordOrderUpdate(companyId: number, order: any) {
     const mlMarketplaceId = await getMlMarketplaceId();
     await query(
       `INSERT INTO returns (company_id, product_id, marketplace_id, reason, cost, date) VALUES ($1, NULL, $2, 'Pedido cancelado (Mercado Livre)', $3, $4)`,
-      [companyId, mlMarketplaceId, revenue, today]
+      [companyId, mlMarketplaceId, revenue, date]
     );
   }
+}
+
+export async function syncMercadoLivreOrders(companyId: number) {
+  const integration = await getIntegration(companyId, "mercado_livre");
+  if (!integration || !integration.seller_id) {
+    throw new Error("Mercado Livre não está conectado.");
+  }
+  const accessToken = await getValidAccessToken(integration);
+  const sellerId = integration.seller_id;
+
+  const dateTo = new Date();
+  const dateFrom = new Date(dateTo.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const limit = 50;
+  let offset = 0;
+  let imported = 0;
+
+  while (offset < 200) {
+    const url =
+      `/orders/search?seller=${sellerId}` +
+      `&order.date_created.from=${encodeURIComponent(dateFrom.toISOString())}` +
+      `&order.date_created.to=${encodeURIComponent(dateTo.toISOString())}` +
+      `&limit=${limit}&offset=${offset}`;
+
+    const data = (await authedFetch(url, accessToken)) as { results: any[]; paging?: { total: number } };
+    const results = data.results || [];
+
+    for (const order of results) {
+      await recordOrderUpdate(companyId, order);
+      imported++;
+    }
+
+    offset += limit;
+    if (results.length < limit) break;
+    if (data.paging && offset >= data.paging.total) break;
+  }
+
+  return imported;
 }
 
 export async function recordQuestionAsAlert(companyId: number, question: any) {
