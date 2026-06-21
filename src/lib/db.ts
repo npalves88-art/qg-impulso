@@ -24,7 +24,9 @@ export async function getPool(): Promise<Pool> {
       connectionString: getConnectionString(),
       max: 5,
       idleTimeoutMillis: 10_000,
-      connectionTimeoutMillis: 10_000,
+      // Neon's free-tier compute auto-suspends when idle; waking it up (cold start) can take
+      // longer than a typical connection timeout, so this needs to be generous.
+      connectionTimeoutMillis: 30_000,
     });
     global.__qgPgPool.on("error", (err) => {
       console.error("Erro inesperado no pool do Postgres:", err);
