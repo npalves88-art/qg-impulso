@@ -4,6 +4,7 @@ import {
   fetchOrder,
   fetchQuestion,
   getIntegrationBySellerId,
+  getValidAccessToken,
   upsertProductAndAdFromItem,
   recordOrderUpdate,
   recordQuestionAsAlert,
@@ -38,7 +39,7 @@ async function handleNotification(topic: string, resource: string, userId: numbe
   if (!integration || !integration.access_token) return;
 
   const companyId = integration.company_id;
-  const accessToken = integration.access_token;
+  const accessToken = await getValidAccessToken(integration);
   const resourceId = resource.split("/").pop();
   if (!resourceId) return;
 

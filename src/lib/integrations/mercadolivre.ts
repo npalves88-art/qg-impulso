@@ -62,6 +62,25 @@ export async function refreshAccessToken(integration: IntegrationRow) {
   return res.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number; user_id: number }>;
 }
 
+export async function getValidAccessToken(integration: IntegrationRow): Promise<string> {
+  const expiresAtMs = integration.expires_at ? new Date(integration.expires_at).getTime() : 0;
+  const isExpiredOrUnknown = !expiresAtMs || Date.now() > expiresAtMs - 60_000;
+
+  if (!isExpiredOrUnknown && integration.access_token) {
+    return integration.access_token;
+  }
+
+  const refreshed = await refreshAccessToken(integration);
+  const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
+  await saveTokens(integration.company_id, "mercado_livre", {
+    access_token: refreshed.access_token,
+    refresh_token: refreshed.refresh_token,
+    expires_at: newExpiresAt,
+    seller_id: String(refreshed.user_id),
+  });
+  return refreshed.access_token;
+}
+
 async function authedFetch(path: string, accessToken: string) {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -125,7 +144,7 @@ export async function syncMercadoLivre(companyId: number) {
   }
 
   const sellerId = integration.seller_id;
-  const accessToken = integration.access_token;
+  const accessToken = await getValidAccessToken(integration);
 
   const itemsSearch = (await authedFetch(`/users/${sellerId}/items/search?status=active&limit=50`, accessToken)) as {
     results: string[];
