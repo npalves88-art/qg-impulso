@@ -11,6 +11,9 @@ const PUBLIC_PATHS = ["/login", "/api/auth/login"];
 // Server-to-server webhooks from marketplaces — no browser session cookie is sent.
 const PUBLIC_PATH_SUFFIXES = ["/notifications"];
 
+// Restricted to Administrador only — other roles get bounced to the dashboard.
+const ADMIN_ONLY_PATHS = ["/anuncio-turbo", "/radar-equipe"];
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -25,19 +28,23 @@ export async function proxy(req: NextRequest) {
   }
 
   const token = req.cookies.get(COOKIE_NAME)?.value;
-  let valid = false;
+  let payload: Record<string, unknown> | null = null;
   if (token) {
     try {
-      await jwtVerify(token, SECRET);
-      valid = true;
+      const verified = await jwtVerify(token, SECRET);
+      payload = verified.payload as Record<string, unknown>;
     } catch {
-      valid = false;
+      payload = null;
     }
   }
 
-  if (!valid) {
+  if (!payload) {
     const loginUrl = new URL("/login", req.url);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (ADMIN_ONLY_PATHS.some((p) => pathname.startsWith(p)) && payload.role !== "Administrador") {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();

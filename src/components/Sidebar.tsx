@@ -17,8 +17,8 @@ import {
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard Executivo", icon: LayoutDashboard },
-  { href: "/anuncio-turbo", label: "Anúncio Turbo", icon: Megaphone },
-  { href: "/radar-equipe", label: "Radar Equipe", icon: Users },
+  { href: "/anuncio-turbo", label: "Anúncio Turbo", icon: Megaphone, adminOnly: true },
+  { href: "/radar-equipe", label: "Radar Equipe", icon: Users, adminOnly: true },
   { href: "/radar-operacional", label: "Radar Operacional", icon: ShieldAlert },
   { href: "/radar-negocio", label: "Radar Negócio", icon: TrendingUp },
   { href: "/performance-marketplace", label: "Performance Marketplace", icon: Store },
@@ -54,7 +54,7 @@ export default function Sidebar({
       </div>
 
       <nav className="flex-1 px-3 mt-2 space-y-1 overflow-y-auto scrollbar-thin">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.adminOnly || user.role === "Administrador").map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
           return (

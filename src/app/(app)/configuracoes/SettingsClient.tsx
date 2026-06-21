@@ -92,6 +92,61 @@ export default function SettingsClient({
   const [employeeForm, setEmployeeForm] = useState({ name: "", role: "", area: "Marketing", email: "" });
   const [productForm, setProductForm] = useState({ name: "", category: "", cost_price: "", sale_price: "", stock: "" });
   const [status, setStatus] = useState("");
+  const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "Operador" });
+  const [savingUser, setSavingUser] = useState(false);
+  const [userActionId, setUserActionId] = useState<number | null>(null);
+
+  const isAdmin = currentUser.role === "Administrador";
+  const ROLE_OPTIONS = ["Administrador", "Gestor", "Operador", "Analista"];
+
+  async function addUser(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingUser(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userForm),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUserForm({ name: "", email: "", password: "", role: "Operador" });
+        setStatus("Usuário criado.");
+        router.refresh();
+      } else {
+        alert(data.error || "Falha ao criar usuário.");
+      }
+    } finally {
+      setSavingUser(false);
+    }
+  }
+
+  async function changeUserRole(userId: number, role: string) {
+    setUserActionId(userId);
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (res.ok) router.refresh();
+      else alert((await res.json()).error || "Falha ao atualizar perfil.");
+    } finally {
+      setUserActionId(null);
+    }
+  }
+
+  async function deleteUser(userId: number, name: string) {
+    if (!confirm(`Excluir o usuário "${name}"? Essa ação não pode ser desfeita.`)) return;
+    setUserActionId(userId);
+    try {
+      const res = await fetch(`/api/users/${userId}`, { method: "DELETE" });
+      if (res.ok) router.refresh();
+      else alert((await res.json()).error || "Falha ao excluir usuário.");
+    } finally {
+      setUserActionId(null);
+    }
+  }
 
   async function saveCompany(e: React.FormEvent) {
     e.preventDefault();
@@ -346,27 +401,98 @@ export default function SettingsClient({
       {tab === "integracoes" && <IntegrationsPanel />}
 
       {tab === "usuarios" && (
-        <div className="card p-6">
-          <p className="text-sm font-medium text-[#F5F3EF]/80 mb-4">Usuários da Plataforma</p>
-          <div className="space-y-2">
-            {users.map((u) => (
-              <div key={u.id} className="flex justify-between border-b border-white/5 pb-2">
-                <div>
-                  <p className="text-sm">{u.name}</p>
-                  <p className="text-xs text-[#F5F3EF]/40">{u.email}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {isAdmin && (
+            <form onSubmit={addUser} className="card p-6 space-y-4 h-fit">
+              <p className="text-sm font-medium text-[#F5F3EF]/80">Cadastrar Usuário</p>
+              <input
+                value={userForm.name}
+                onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
+                placeholder="Nome completo"
+                className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
+                required
+              />
+              <input
+                value={userForm.email}
+                onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                placeholder="E-mail"
+                type="email"
+                className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
+                required
+              />
+              <input
+                value={userForm.password}
+                onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                placeholder="Senha"
+                type="password"
+                className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
+                required
+              />
+              <select
+                value={userForm.role}
+                onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
+              >
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+              <button
+                disabled={savingUser}
+                className="px-5 py-2.5 rounded-xl bg-[#FF6B00] text-[#0F0F10] font-medium hover:bg-[#ff7d1f] transition disabled:opacity-60"
+              >
+                {savingUser ? "Salvando..." : "Cadastrar"}
+              </button>
+            </form>
+          )}
+
+          <div className="card p-6">
+            <p className="text-sm font-medium text-[#F5F3EF]/80 mb-4">Usuários da Plataforma</p>
+            <div className="space-y-3">
+              {users.map((u) => (
+                <div key={u.id} className="flex items-center justify-between gap-3 border-b border-white/5 pb-3">
+                  <div className="min-w-0">
+                    <p className="text-sm truncate">{u.name}</p>
+                    <p className="text-xs text-[#F5F3EF]/40 truncate">{u.email}</p>
+                  </div>
+                  {isAdmin ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <select
+                        value={u.role}
+                        disabled={userActionId === u.id}
+                        onChange={(e) => changeUserRole(u.id, e.target.value)}
+                        className="text-xs px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 outline-none disabled:opacity-50"
+                        style={{ color: u.avatar_color }}
+                      >
+                        {ROLE_OPTIONS.map((r) => (
+                          <option key={r} value={r} className="text-black">{r}</option>
+                        ))}
+                      </select>
+                      {u.email !== currentUser.email && (
+                        <button
+                          onClick={() => deleteUser(u.id, u.name)}
+                          disabled={userActionId === u.id}
+                          className="text-xs px-2.5 py-1.5 rounded-lg bg-red-500/15 text-red-400 hover:bg-red-500/25 transition disabled:opacity-50"
+                        >
+                          Excluir
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <span
+                      className="text-xs px-2.5 py-1 rounded-full shrink-0"
+                      style={{ backgroundColor: `${u.avatar_color}22`, color: u.avatar_color }}
+                    >
+                      {u.role}
+                    </span>
+                  )}
                 </div>
-                <span
-                  className="text-xs px-2.5 py-1 rounded-full"
-                  style={{ backgroundColor: `${u.avatar_color}22`, color: u.avatar_color }}
-                >
-                  {u.role}
-                </span>
-              </div>
-            ))}
+              ))}
+            </div>
+            <p className="text-xs text-[#F5F3EF]/30 mt-4">
+              Logado como {currentUser.name} ({currentUser.role}) — {currentUser.email}
+            </p>
           </div>
-          <p className="text-xs text-[#F5F3EF]/30 mt-4">
-            Logado como {currentUser.name} ({currentUser.role}) — {currentUser.email}
-          </p>
         </div>
       )}
     </div>
