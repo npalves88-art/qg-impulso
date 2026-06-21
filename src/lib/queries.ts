@@ -88,6 +88,54 @@ export async function getExecutiveDashboard(companyId: number) {
   };
 }
 
+async function getDailyReportsWithSkus(employeeId: number, dates: string[]) {
+  if (dates.length === 0) return [];
+  const reports = await query<any>(
+    `SELECT * FROM daily_reports WHERE employee_id = $1 AND date IN (${inPlaceholders(2, dates.length)})`,
+    [employeeId, ...dates]
+  );
+  if (reports.length === 0) return [];
+
+  const reportIds = reports.map((r) => r.id);
+  const skus = await query<any>(
+    `SELECT * FROM daily_report_skus WHERE daily_report_id = ANY($1::int[])`,
+    [reportIds]
+  );
+
+  return reports.map((r) => ({
+    ...r,
+    skus: skus.filter((s) => s.daily_report_id === r.id),
+  }));
+}
+
+function summarizeReports(reports: any[]) {
+  let skusWorked = 0;
+  let adsCreated = 0;
+  let imagesMade = 0;
+  let scoreSum = 0;
+  let scoreCount = 0;
+
+  for (const r of reports) {
+    skusWorked += r.skus.length;
+    for (const s of r.skus) {
+      const acts: string[] = s.activities || [];
+      if (acts.includes("criacao_anuncio")) adsCreated++;
+      if (acts.includes("criacao_imagens") || acts.includes("edicao_imagens")) imagesMade++;
+    }
+    if (r.self_score !== null && r.self_score !== undefined) {
+      scoreSum += Number(r.self_score);
+      scoreCount++;
+    }
+  }
+
+  return {
+    skus_worked: skusWorked,
+    ads_created: adsCreated,
+    images_made: imagesMade,
+    score: scoreCount > 0 ? +(scoreSum / scoreCount).toFixed(1) : 0,
+  };
+}
+
 export async function getTeamRadar(companyId: number) {
   const employees = await query<any>(`SELECT * FROM employees WHERE company_id = $1`, [companyId]);
 
@@ -96,24 +144,9 @@ export async function getTeamRadar(companyId: number) {
 
   const ranking = await Promise.all(
     employees.map(async (e) => {
-      const activities = await query<any>(
-        `SELECT * FROM team_activities WHERE employee_id = $1 AND date IN (${inPlaceholders(2, last7.length)})`,
-        [e.id, ...last7]
-      );
-
-      const totals = activities.reduce(
-        (acc, a) => ({
-          skus_worked: acc.skus_worked + a.skus_worked,
-          ads_created: acc.ads_created + a.ads_created,
-          images_made: acc.images_made + a.images_made,
-          orders_picked: acc.orders_picked + a.orders_picked,
-          orders_shipped: acc.orders_shipped + a.orders_shipped,
-          score: acc.score + a.score,
-        }),
-        { skus_worked: 0, ads_created: 0, images_made: 0, orders_picked: 0, orders_shipped: 0, score: 0 }
-      );
-
-      return { ...e, ...totals, score: +totals.score.toFixed(1) };
+      const reports = await getDailyReportsWithSkus(e.id, last7);
+      const totals = summarizeReports(reports);
+      return { ...e, ...totals };
     })
   );
 
@@ -122,41 +155,23 @@ export async function getTeamRadar(companyId: number) {
   return { employees: ranking };
 }
 
-function sumActivities(activities: any[]) {
-  return activities.reduce(
-    (acc, a) => ({
-      skus_worked: acc.skus_worked + a.skus_worked,
-      ads_created: acc.ads_created + a.ads_created,
-      images_made: acc.images_made + a.images_made,
-      orders_picked: acc.orders_picked + a.orders_picked,
-      orders_shipped: acc.orders_shipped + a.orders_shipped,
-      score: acc.score + a.score,
-    }),
-    { skus_worked: 0, ads_created: 0, images_made: 0, orders_picked: 0, orders_shipped: 0, score: 0 }
-  );
-}
-
 export async function getOwnProductivity(employeeId: number) {
   const days30 = lastNDates(30);
   const yesterday = [days30[days30.length - 2]];
   const last7 = days30.slice(-7);
 
-  const all = await query<any>(
-    `SELECT * FROM team_activities WHERE employee_id = $1 AND date IN (${inPlaceholders(2, days30.length)}) ORDER BY date ASC`,
-    [employeeId, ...days30]
-  );
-
+  const allReports = await getDailyReportsWithSkus(employeeId, days30);
   const byDate: Record<string, any> = {};
-  for (const a of all) byDate[a.date] = a;
+  for (const r of allReports) byDate[r.date] = r;
 
-  const yesterdayActivities = yesterday.filter((d) => byDate[d]).map((d) => byDate[d]);
-  const last7Activities = last7.filter((d) => byDate[d]).map((d) => byDate[d]);
+  const yesterdayReports = yesterday.filter((d) => byDate[d]).map((d) => byDate[d]);
+  const last7Reports = last7.filter((d) => byDate[d]).map((d) => byDate[d]);
 
   return {
-    yesterday: sumActivities(yesterdayActivities),
-    last7Days: sumActivities(last7Activities),
-    lastMonth: sumActivities(all),
-    daily: all,
+    yesterday: summarizeReports(yesterdayReports),
+    last7Days: summarizeReports(last7Reports),
+    lastMonth: summarizeReports(allReports),
+    daily: allReports,
   };
 }
 

@@ -151,6 +151,42 @@ async function createSchema(pool: Pool) {
       FOREIGN KEY (employee_id) REFERENCES employees(id)
     );
 
+    CREATE TABLE IF NOT EXISTS daily_reports (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      gargalos TEXT[] DEFAULT '{}',
+      gargalos_detalhamento TEXT,
+      self_score INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(employee_id, date)
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_report_skus (
+      id SERIAL PRIMARY KEY,
+      daily_report_id INTEGER NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE,
+      sku_code TEXT,
+      product_name TEXT,
+      activities TEXT[] DEFAULT '{}',
+      observacao TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_report_pendencias (
+      id SERIAL PRIMARY KEY,
+      daily_report_id INTEGER NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE,
+      sku_code TEXT,
+      motivo TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_report_planejamento (
+      id SERIAL PRIMARY KEY,
+      daily_report_id INTEGER NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE,
+      sku_code TEXT,
+      produto TEXT,
+      atividade TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS operational_errors (
       id SERIAL PRIMARY KEY,
       company_id INTEGER NOT NULL,

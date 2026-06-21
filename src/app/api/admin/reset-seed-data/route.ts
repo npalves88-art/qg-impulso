@@ -64,6 +64,7 @@ export async function POST() {
   }
 
   await query(`DELETE FROM team_activities WHERE employee_id IN (SELECT id FROM employees WHERE company_id = $1)`, [companyId]);
+  await query(`DELETE FROM daily_reports WHERE employee_id IN (SELECT id FROM employees WHERE company_id = $1)`, [companyId]);
   await query(`DELETE FROM employees WHERE company_id = $1`, [companyId]);
   await query(`DELETE FROM operational_errors WHERE company_id = $1`, [companyId]);
   await query(`DELETE FROM complaints WHERE company_id = $1`, [companyId]);

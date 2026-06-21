@@ -52,6 +52,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!target) return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
 
   await query(`DELETE FROM team_activities WHERE employee_id = $1`, [userId]);
+  await query(`DELETE FROM daily_reports WHERE employee_id = $1`, [userId]);
   await query(`UPDATE operational_errors SET employee_id = NULL WHERE employee_id = $1`, [userId]);
   await query(`DELETE FROM employees WHERE id = $1`, [userId]);
 
