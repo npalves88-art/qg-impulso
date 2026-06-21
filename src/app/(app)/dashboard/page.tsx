@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { getExecutiveDashboard } from "@/lib/queries";
+import { autoSyncMercadoLivreIfStale } from "@/lib/integrations/auto-sync";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import RevenueChart from "./RevenueChart";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const session = await getSession();
+  await autoSyncMercadoLivreIfStale(session!.companyId);
   const data = await getExecutiveDashboard(session!.companyId);
 
   return (

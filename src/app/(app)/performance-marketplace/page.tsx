@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { getMarketplacePerformance } from "@/lib/queries";
+import { autoSyncMercadoLivreIfStale } from "@/lib/integrations/auto-sync";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import MarketplaceChart from "./MarketplaceChart";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PerformanceMarketplacePage() {
   const session = await getSession();
+  await autoSyncMercadoLivreIfStale(session!.companyId);
   const marketplaces = await getMarketplacePerformance(session!.companyId);
 
   return (
