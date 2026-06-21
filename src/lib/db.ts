@@ -155,9 +155,11 @@ async function createSchema(pool: Pool) {
       id SERIAL PRIMARY KEY,
       employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
       date TEXT NOT NULL,
+      cliente TEXT,
       gargalos TEXT[] DEFAULT '{}',
       gargalos_detalhamento TEXT,
       self_score INTEGER,
+      ai_analysis TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(employee_id, date)
@@ -608,11 +610,19 @@ async function migrateEmployeesUsersUnification(pool: Pool) {
   }
 }
 
+async function migrateDailyReportsExtraColumns(pool: Pool) {
+  await pool.query(`
+    ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS cliente TEXT;
+    ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS ai_analysis TEXT;
+  `);
+}
+
 export async function ensureSchemaAndSeed(): Promise<void> {
   const pool = await getPool();
   await createSchema(pool);
   await seed(pool);
   await migrateEmployeesUsersUnification(pool);
+  await migrateDailyReportsExtraColumns(pool);
 }
 
 function ensureInit(): Promise<void> {

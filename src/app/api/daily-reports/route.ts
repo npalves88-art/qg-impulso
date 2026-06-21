@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { generateDailyReportAnalysis } from "@/lib/daily-report-analysis";
 
 type SkuEntry = { sku_code: string; product_name: string; activities: string[]; observacao: string };
 type PendenciaEntry = { sku_code: string; motivo: string };
@@ -11,9 +12,16 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
 
   const body = await req.json();
-  const skus: SkuEntry[] = Array.isArray(body.skus) ? body.skus : [];
-  const pendencias: PendenciaEntry[] = Array.isArray(body.pendencias) ? body.pendencias : [];
-  const planejamento: PlanejamentoEntry[] = Array.isArray(body.planejamento) ? body.planejamento : [];
+  const cliente: string = body.cliente || "";
+  const skus: SkuEntry[] = (Array.isArray(body.skus) ? body.skus : []).filter(
+    (s: SkuEntry) => s.sku_code || s.product_name
+  );
+  const pendencias: PendenciaEntry[] = (Array.isArray(body.pendencias) ? body.pendencias : []).filter(
+    (p: PendenciaEntry) => p.sku_code || p.motivo
+  );
+  const planejamento: PlanejamentoEntry[] = (Array.isArray(body.planejamento) ? body.planejamento : []).filter(
+    (p: PlanejamentoEntry) => p.sku_code || p.produto
+  );
   const gargalos: string[] = Array.isArray(body.gargalos) ? body.gargalos : [];
   const gargalosDetalhamento: string = body.gargalos_detalhamento || "";
   const selfScore = body.self_score !== undefined && body.self_score !== null && body.self_score !== ""
@@ -21,6 +29,17 @@ export async function POST(req: NextRequest) {
     : null;
 
   const today = new Date().toISOString().slice(0, 10);
+
+  const analysis = generateDailyReportAnalysis({
+    employeeName: session.name,
+    date: today,
+    cliente,
+    skus,
+    gargalos,
+    gargalosDetalhamento,
+    pendenciasCount: pendencias.length,
+    selfScore,
+  });
 
   const existing = await query<{ id: number }>(
     `SELECT id FROM daily_reports WHERE employee_id = $1 AND date = $2`,
@@ -31,23 +50,24 @@ export async function POST(req: NextRequest) {
   if (existing.length > 0) {
     reportId = existing[0].id;
     await query(
-      `UPDATE daily_reports SET gargalos = $1, gargalos_detalhamento = $2, self_score = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`,
-      [gargalos, gargalosDetalhamento, selfScore, reportId]
+      `UPDATE daily_reports
+       SET cliente = $1, gargalos = $2, gargalos_detalhamento = $3, self_score = $4, ai_analysis = $5, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6`,
+      [cliente || null, gargalos, gargalosDetalhamento, selfScore, analysis, reportId]
     );
     await query(`DELETE FROM daily_report_skus WHERE daily_report_id = $1`, [reportId]);
     await query(`DELETE FROM daily_report_pendencias WHERE daily_report_id = $1`, [reportId]);
     await query(`DELETE FROM daily_report_planejamento WHERE daily_report_id = $1`, [reportId]);
   } else {
     const inserted = await query<{ id: number }>(
-      `INSERT INTO daily_reports (employee_id, date, gargalos, gargalos_detalhamento, self_score)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [session.userId, today, gargalos, gargalosDetalhamento, selfScore]
+      `INSERT INTO daily_reports (employee_id, date, cliente, gargalos, gargalos_detalhamento, self_score, ai_analysis)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [session.userId, today, cliente || null, gargalos, gargalosDetalhamento, selfScore, analysis]
     );
     reportId = inserted[0].id;
   }
 
   for (const s of skus) {
-    if (!s.sku_code && !s.product_name) continue;
     await query(
       `INSERT INTO daily_report_skus (daily_report_id, sku_code, product_name, activities, observacao)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -56,7 +76,6 @@ export async function POST(req: NextRequest) {
   }
 
   for (const p of pendencias) {
-    if (!p.sku_code && !p.motivo) continue;
     await query(
       `INSERT INTO daily_report_pendencias (daily_report_id, sku_code, motivo) VALUES ($1, $2, $3)`,
       [reportId, p.sku_code || null, p.motivo || null]
@@ -64,12 +83,25 @@ export async function POST(req: NextRequest) {
   }
 
   for (const item of planejamento) {
-    if (!item.sku_code && !item.produto) continue;
     await query(
       `INSERT INTO daily_report_planejamento (daily_report_id, sku_code, produto, atividade) VALUES ($1, $2, $3, $4)`,
       [reportId, item.sku_code || null, item.produto || null, item.atividade || null]
     );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    report: {
+      date: today,
+      employeeName: session.name,
+      cliente,
+      skus,
+      pendencias,
+      planejamento,
+      gargalos,
+      gargalosDetalhamento,
+      selfScore,
+      analysis,
+    },
+  });
 }

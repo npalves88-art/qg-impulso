@@ -35,8 +35,9 @@ const emptySku = (): SkuRow => ({ sku_code: "", product_name: "", activities: []
 const emptyPendencia = (): PendenciaRow => ({ sku_code: "", motivo: "" });
 const emptyPlanejamento = (): PlanejamentoRow => ({ sku_code: "", produto: "", atividade: "" });
 
-export default function RegistroDoDiaForm() {
+export default function RegistroDoDiaForm({ onSubmitted }: { onSubmitted?: (report: any) => void }) {
   const router = useRouter();
+  const [cliente, setCliente] = useState("");
   const [skus, setSkus] = useState<SkuRow[]>([emptySku()]);
   const [pendencias, setPendencias] = useState<PendenciaRow[]>([]);
   const [planejamento, setPlanejamento] = useState<PlanejamentoRow[]>([]);
@@ -69,6 +70,7 @@ export default function RegistroDoDiaForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          cliente,
           skus: skus.filter((s) => s.sku_code || s.product_name),
           pendencias: pendencias.filter((p) => p.sku_code || p.motivo),
           planejamento: planejamento.filter((p) => p.sku_code || p.produto),
@@ -77,8 +79,10 @@ export default function RegistroDoDiaForm() {
           self_score: selfScore,
         }),
       });
+      const data = await res.json();
       if (res.ok) {
         setSuccess(true);
+        onSubmitted?.(data.report);
         router.refresh();
       }
     } finally {
@@ -88,6 +92,17 @@ export default function RegistroDoDiaForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="card p-6">
+        <p className="text-sm font-medium text-[#F5F3EF]/80 mb-3">Dados do Dia</p>
+        <label className="block text-xs uppercase tracking-wide text-[#F5F3EF]/50 mb-1">Cliente (opcional)</label>
+        <input
+          value={cliente}
+          onChange={(e) => setCliente(e.target.value)}
+          placeholder="Nome do cliente/conta atendida hoje"
+          className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
+        />
+      </div>
+
       <div className="card p-6">
         <p className="text-sm font-medium text-[#F5F3EF]/80 mb-1">01 · SKUs Trabalhados</p>
         <p className="text-xs text-[#F5F3EF]/40 mb-4">Registre cada SKU que você trabalhou hoje e as atividades feitas nele.</p>

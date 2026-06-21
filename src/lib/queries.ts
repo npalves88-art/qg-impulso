@@ -155,23 +155,94 @@ export async function getTeamRadar(companyId: number) {
   return { employees: ranking };
 }
 
-export async function getOwnProductivity(employeeId: number) {
+export async function getOwnDashboard(employeeId: number) {
+  const allReportsRes = await query<any>(
+    `SELECT * FROM daily_reports WHERE employee_id = $1 ORDER BY date DESC`,
+    [employeeId]
+  );
+  const reportIds = allReportsRes.map((r) => r.id);
+  const allSkus = reportIds.length
+    ? await query<any>(`SELECT * FROM daily_report_skus WHERE daily_report_id = ANY($1::int[])`, [reportIds])
+    : [];
+
+  const skusByReport: Record<number, any[]> = {};
+  for (const s of allSkus) {
+    (skusByReport[s.daily_report_id] ||= []).push(s);
+  }
+
+  const days7 = lastNDates(7);
   const days30 = lastNDates(30);
-  const yesterday = [days30[days30.length - 2]];
-  const last7 = days30.slice(-7);
 
-  const allReports = await getDailyReportsWithSkus(employeeId, days30);
-  const byDate: Record<string, any> = {};
-  for (const r of allReports) byDate[r.date] = r;
+  let totalSkus = 0;
+  let weekSkus = 0;
+  let monthSkus = 0;
+  let adsCreatedTotal = 0;
+  let seoTotal = 0;
+  let scoreSum = 0;
+  let scoreCount = 0;
+  const skusPerDay: Record<string, number> = {};
+  const gargaloRanking: Record<string, number> = {};
 
-  const yesterdayReports = yesterday.filter((d) => byDate[d]).map((d) => byDate[d]);
-  const last7Reports = last7.filter((d) => byDate[d]).map((d) => byDate[d]);
+  for (const r of allReportsRes) {
+    const skus = skusByReport[r.id] || [];
+    totalSkus += skus.length;
+    if (days7.includes(r.date)) weekSkus += skus.length;
+    if (days30.includes(r.date)) monthSkus += skus.length;
+    skusPerDay[r.date] = (skusPerDay[r.date] || 0) + skus.length;
+
+    for (const s of skus) {
+      const acts: string[] = s.activities || [];
+      if (acts.includes("criacao_anuncio")) adsCreatedTotal++;
+      if (acts.includes("seo")) seoTotal++;
+    }
+
+    if (r.self_score !== null && r.self_score !== undefined) {
+      scoreSum += Number(r.self_score);
+      scoreCount++;
+    }
+
+    for (const g of r.gargalos || []) {
+      gargaloRanking[g] = (gargaloRanking[g] || 0) + 1;
+    }
+  }
+
+  const skusPorDiaUltimos7 = days7.map((d) => ({ date: d, count: skusPerDay[d] || 0 }));
+  const rankingGargalos = Object.entries(gargaloRanking)
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const recentEntries = allReportsRes.slice(0, 10).map((r) => {
+    const skus = skusByReport[r.id] || [];
+    let ads = 0;
+    let seo = 0;
+    let images = 0;
+    for (const s of skus) {
+      const acts: string[] = s.activities || [];
+      if (acts.includes("criacao_anuncio")) ads++;
+      if (acts.includes("seo")) seo++;
+      if (acts.includes("criacao_imagens") || acts.includes("edicao_imagens")) images++;
+    }
+    return {
+      date: r.date,
+      cliente: r.cliente,
+      skus: skus.length,
+      ads,
+      seo,
+      images,
+      score: r.self_score,
+    };
+  });
 
   return {
-    yesterday: summarizeReports(yesterdayReports),
-    last7Days: summarizeReports(last7Reports),
-    lastMonth: summarizeReports(allReports),
-    daily: allReports,
+    totalSkus,
+    weekSkus,
+    monthSkus,
+    adsCreatedTotal,
+    seoTotal,
+    avgScore: scoreCount > 0 ? +(scoreSum / scoreCount).toFixed(1) : 0,
+    skusPorDiaUltimos7,
+    rankingGargalos,
+    recentEntries,
   };
 }
 

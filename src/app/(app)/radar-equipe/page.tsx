@@ -1,58 +1,22 @@
 import { getSession } from "@/lib/auth";
-import { getTeamRadar, getOwnProductivity } from "@/lib/queries";
+import { getTeamRadar, getOwnDashboard } from "@/lib/queries";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import { Trophy, Boxes, Image as ImageIcon } from "lucide-react";
-import RegistroDoDiaForm from "./RegistroDoDiaForm";
+import OwnRadarTabs from "./OwnRadarTabs";
 
 export const dynamic = "force-dynamic";
 
 export default async function RadarEquipePage() {
   const session = await getSession();
   const isManager = ["Administrador", "Gestor", "Analista"].includes(session!.role);
+  const dashboardData = await getOwnDashboard(session!.userId);
 
   if (!isManager) {
-    const own = await getOwnProductivity(session!.userId);
     return (
       <div>
-        <PageHeader
-          title="Radar Equipe"
-          subtitle={`Sua produtividade — ${session!.name}.`}
-        />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="space-y-4">
-            {[
-              { label: "Ontem", data: own.yesterday },
-              { label: "Últimos 7 dias", data: own.last7Days },
-              { label: "Último mês", data: own.lastMonth },
-            ].map((period) => (
-              <div key={period.label} className="card p-5">
-                <p className="text-sm font-medium text-[#F5F3EF]/80 mb-3">{period.label}</p>
-                <div className="grid grid-cols-4 gap-3 text-sm">
-                  <div>
-                    <p className="text-[#F5F3EF]/40 text-xs">SKUs</p>
-                    <p className="font-semibold">{period.data.skus_worked}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#F5F3EF]/40 text-xs">Anúncios</p>
-                    <p className="font-semibold">{period.data.ads_created}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#F5F3EF]/40 text-xs">Imagens</p>
-                    <p className="font-semibold">{period.data.images_made}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#F5F3EF]/40 text-xs">Nota Média</p>
-                    <p className="font-semibold text-[#FF6B00]">{period.data.score.toFixed(1)}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <RegistroDoDiaForm />
-        </div>
+        <PageHeader title="Radar Equipe" subtitle={`Sua produtividade — ${session!.name}.`} />
+        <OwnRadarTabs dashboardData={dashboardData} />
       </div>
     );
   }
@@ -78,11 +42,7 @@ export default async function RadarEquipePage() {
         <StatCard label="Imagens Feitas (7d)" value={String(employees.reduce((s, e) => s + e.images_made, 0))} icon={ImageIcon} />
       </div>
 
-      <div className="mb-6">
-        <RegistroDoDiaForm />
-      </div>
-
-      <div className="card p-5">
+      <div className="card p-5 mb-6">
         <p className="text-sm font-medium mb-4 text-[#F5F3EF]/80">Ranking de Produtividade</p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[600px]">
@@ -125,6 +85,9 @@ export default async function RadarEquipePage() {
           </table>
         </div>
       </div>
+
+      <p className="text-sm font-medium text-[#F5F3EF]/80 mb-4">Seu Registro Pessoal</p>
+      <OwnRadarTabs dashboardData={dashboardData} />
     </div>
   );
 }
