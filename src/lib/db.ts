@@ -20,9 +20,23 @@ function getConnectionString(): string {
 
 export async function getPool(): Promise<Pool> {
   if (!global.__qgPgPool) {
-    global.__qgPgPool = new Pool({ connectionString: getConnectionString() });
+    global.__qgPgPool = new Pool({
+      connectionString: getConnectionString(),
+      max: 5,
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 10_000,
+    });
+    global.__qgPgPool.on("error", (err) => {
+      console.error("Erro inesperado no pool do Postgres:", err);
+    });
   }
   return global.__qgPgPool;
+}
+
+const TRANSIENT_ERROR_CODES = new Set(["ECONNRESET", "ETIMEDOUT", "EPIPE", "08006", "08003", "08P01"]);
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function createSchema(pool: Pool) {
@@ -659,9 +673,18 @@ function ensureInit(): Promise<void> {
   return global.__qgSchemaReady;
 }
 
-export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> {
+export async function query<T = any>(sql: string, params?: any[], attempt = 1): Promise<T[]> {
   await ensureInit();
   const pool = await getPool();
-  const result = await pool.query(sql, params);
-  return result.rows as T[];
+  try {
+    const result = await pool.query(sql, params);
+    return result.rows as T[];
+  } catch (err: any) {
+    const code = err?.code as string | undefined;
+    if (code && TRANSIENT_ERROR_CODES.has(code) && attempt < 3) {
+      await sleep(300 * attempt);
+      return query<T>(sql, params, attempt + 1);
+    }
+    throw err;
+  }
 }
