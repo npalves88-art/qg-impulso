@@ -24,6 +24,29 @@ export default function SettingsClient({
   const searchParams = useSearchParams();
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
   const [deletingProducts, setDeletingProducts] = useState(false);
+  const [resettingSeed, setResettingSeed] = useState(false);
+
+  async function handleResetSeedData() {
+    if (
+      !confirm(
+        "Isso vai apagar TODOS os dados de demonstração (produtos de exemplo, funcionários, erros operacionais, reclamações, atrasos, devoluções, métricas e alertas fictícios). Dados reais de marketplaces conectados não são afetados. Confirma?"
+      )
+    )
+      return;
+    setResettingSeed(true);
+    try {
+      const res = await fetch("/api/admin/reset-seed-data", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.summary);
+        router.refresh();
+      } else {
+        alert(data.error || "Falha ao resetar os dados.");
+      }
+    } finally {
+      setResettingSeed(false);
+    }
+  }
 
   function toggleProductSelection(id: number) {
     setSelectedProductIds((prev) =>
@@ -153,6 +176,24 @@ export default function SettingsClient({
             Salvar
           </button>
         </form>
+      )}
+
+      {tab === "empresa" && currentUser.role === "Administrador" && (
+        <div className="card p-6 max-w-lg mt-6 border border-red-500/20">
+          <p className="text-sm font-medium text-red-400 mb-1">Zona de risco</p>
+          <p className="text-xs text-[#F5F3EF]/50 mb-4">
+            Remove os 20 produtos de demonstração e zera funcionários, erros operacionais, reclamações, atrasos,
+            devoluções, métricas de vendas/KPIs e alertas fictícios. Anúncios e produtos importados de marketplaces
+            conectados (ex: Mercado Livre) não são afetados. Essa ação não pode ser desfeita.
+          </p>
+          <button
+            onClick={handleResetSeedData}
+            disabled={resettingSeed}
+            className="px-4 py-2 rounded-xl bg-red-500/15 text-red-400 hover:bg-red-500/25 transition disabled:opacity-50 text-sm font-medium"
+          >
+            {resettingSeed ? "Limpando..." : "Resetar para dados reais"}
+          </button>
+        </div>
       )}
 
       {tab === "equipe" && (
