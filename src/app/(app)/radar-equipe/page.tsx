@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/auth";
-import { getTeamRadar, getOwnDashboard } from "@/lib/queries";
+import { getTeamRadar, getOwnDashboard, getClientsForEmployee } from "@/lib/queries";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import { Trophy, Boxes, Image as ImageIcon } from "lucide-react";
@@ -11,12 +11,13 @@ export default async function RadarEquipePage() {
   const session = await getSession();
   const isManager = ["Administrador", "Gestor", "Analista"].includes(session!.role);
   const dashboardData = await getOwnDashboard(session!.userId);
+  const myClients = await getClientsForEmployee(session!.userId);
 
   if (!isManager) {
     return (
       <div>
         <PageHeader title="Radar Equipe" subtitle={`Sua produtividade — ${session!.name}.`} />
-        <OwnRadarTabs dashboardData={dashboardData} />
+        <OwnRadarTabs dashboardData={dashboardData} clients={myClients} />
       </div>
     );
   }
@@ -87,7 +88,7 @@ export default async function RadarEquipePage() {
       </div>
 
       <p className="text-sm font-medium text-[#F5F3EF]/80 mb-4">Seu Registro Pessoal</p>
-      <OwnRadarTabs dashboardData={dashboardData} />
+      <OwnRadarTabs dashboardData={dashboardData} clients={myClients} />
     </div>
   );
 }

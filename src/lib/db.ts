@@ -189,6 +189,23 @@ async function createSchema(pool: Pool) {
       atividade TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS clients (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL REFERENCES companies(id),
+      razao_social TEXT NOT NULL,
+      responsavel TEXT,
+      platforms TEXT[] DEFAULT '{}',
+      status TEXT DEFAULT 'ativo',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS employee_clients (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+      client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      UNIQUE(employee_id, client_id)
+    );
+
     CREATE TABLE IF NOT EXISTS operational_errors (
       id SERIAL PRIMARY KEY,
       company_id INTEGER NOT NULL,
@@ -614,6 +631,7 @@ async function migrateDailyReportsExtraColumns(pool: Pool) {
   await pool.query(`
     ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS cliente TEXT;
     ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS ai_analysis TEXT;
+    ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES clients(id);
   `);
 }
 

@@ -35,9 +35,15 @@ const emptySku = (): SkuRow => ({ sku_code: "", product_name: "", activities: []
 const emptyPendencia = (): PendenciaRow => ({ sku_code: "", motivo: "" });
 const emptyPlanejamento = (): PlanejamentoRow => ({ sku_code: "", produto: "", atividade: "" });
 
-export default function RegistroDoDiaForm({ onSubmitted }: { onSubmitted?: (report: any) => void }) {
+export default function RegistroDoDiaForm({
+  onSubmitted,
+  clients = [],
+}: {
+  onSubmitted?: (report: any) => void;
+  clients?: { id: number; razao_social: string }[];
+}) {
   const router = useRouter();
-  const [cliente, setCliente] = useState("");
+  const [clientId, setClientId] = useState<string>("");
   const [skus, setSkus] = useState<SkuRow[]>([emptySku()]);
   const [pendencias, setPendencias] = useState<PendenciaRow[]>([]);
   const [planejamento, setPlanejamento] = useState<PlanejamentoRow[]>([]);
@@ -70,7 +76,7 @@ export default function RegistroDoDiaForm({ onSubmitted }: { onSubmitted?: (repo
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cliente,
+          client_id: clientId || null,
           skus: skus.filter((s) => s.sku_code || s.product_name),
           pendencias: pendencias.filter((p) => p.sku_code || p.motivo),
           planejamento: planejamento.filter((p) => p.sku_code || p.produto),
@@ -94,13 +100,25 @@ export default function RegistroDoDiaForm({ onSubmitted }: { onSubmitted?: (repo
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="card p-6">
         <p className="text-sm font-medium text-[#F5F3EF]/80 mb-3">Dados do Dia</p>
-        <label className="block text-xs uppercase tracking-wide text-[#F5F3EF]/50 mb-1">Cliente (opcional)</label>
-        <input
-          value={cliente}
-          onChange={(e) => setCliente(e.target.value)}
-          placeholder="Nome do cliente/conta atendida hoje"
-          className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
-        />
+        <label className="block text-xs uppercase tracking-wide text-[#F5F3EF]/50 mb-1">Cliente</label>
+        {clients.length === 0 ? (
+          <p className="text-xs text-[#F5F3EF]/40">
+            Nenhum cliente atribuído a você ainda. Peça ao administrador para te vincular a um cliente em Configurações → Clientes.
+          </p>
+        ) : (
+          <select
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
+          >
+            <option value="">Selecione o cliente atendido hoje</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.razao_social}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="card p-6">

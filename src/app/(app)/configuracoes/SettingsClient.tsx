@@ -3,20 +3,23 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import IntegrationsPanel from "./IntegrationsPanel";
+import ClientesPanel from "./ClientesPanel";
 
-type Tab = "empresa" | "equipe" | "produtos" | "usuarios" | "integracoes";
+type Tab = "empresa" | "equipe" | "produtos" | "clientes" | "usuarios" | "integracoes";
 
 export default function SettingsClient({
   company,
   employees,
   products,
   users,
+  clients,
   currentUser,
 }: {
   company: any;
   employees: any[];
   products: any[];
   users: any[];
+  clients: any[];
   currentUser: { name: string; role: string; email: string };
 }) {
   const [tab, setTab] = useState<Tab>("empresa");
@@ -183,6 +186,7 @@ export default function SettingsClient({
     { key: "empresa", label: "Empresa" },
     { key: "equipe", label: "Equipe" },
     { key: "produtos", label: "Produtos" },
+    { key: "clientes", label: "Clientes" },
     { key: "integracoes", label: "Integrações" },
     { key: "usuarios", label: "Usuários" },
   ];
@@ -408,6 +412,8 @@ export default function SettingsClient({
           </div>
         </div>
       )}
+
+      {tab === "clientes" && <ClientesPanel clients={clients} employees={employees} />}
 
       {tab === "integracoes" && <IntegrationsPanel />}
 

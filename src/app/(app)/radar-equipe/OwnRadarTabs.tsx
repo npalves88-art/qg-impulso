@@ -7,7 +7,13 @@ import DashboardView from "./DashboardView";
 
 type Tab = "registro" | "relatorio" | "dashboard";
 
-export default function OwnRadarTabs({ dashboardData }: { dashboardData: any }) {
+export default function OwnRadarTabs({
+  dashboardData,
+  clients = [],
+}: {
+  dashboardData: any;
+  clients?: { id: number; razao_social: string }[];
+}) {
   const [tab, setTab] = useState<Tab>("registro");
   const [lastReport, setLastReport] = useState<any | null>(null);
 
@@ -35,6 +41,7 @@ export default function OwnRadarTabs({ dashboardData }: { dashboardData: any }) 
 
       {tab === "registro" && (
         <RegistroDoDiaForm
+          clients={clients}
           onSubmitted={(report) => {
             setLastReport(report);
             setTab("relatorio");

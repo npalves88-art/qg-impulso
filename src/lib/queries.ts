@@ -470,3 +470,33 @@ export async function getUsers(companyId: number) {
     [companyId]
   );
 }
+
+export async function getClients(companyId: number) {
+  const clients = await query<any>(
+    `SELECT * FROM clients WHERE company_id = $1 ORDER BY razao_social ASC`,
+    [companyId]
+  );
+  if (clients.length === 0) return [];
+
+  const assignments = await query<{ client_id: number; employee_id: number; employee_name: string }>(
+    `SELECT ec.client_id, ec.employee_id, e.name as employee_name
+     FROM employee_clients ec JOIN employees e ON e.id = ec.employee_id
+     WHERE ec.client_id = ANY($1::int[])`,
+    [clients.map((c) => c.id)]
+  );
+
+  return clients.map((c) => ({
+    ...c,
+    employees: assignments.filter((a) => a.client_id === c.id).map((a) => ({ id: a.employee_id, name: a.employee_name })),
+  }));
+}
+
+export async function getClientsForEmployee(employeeId: number) {
+  return query<any>(
+    `SELECT c.* FROM clients c
+     JOIN employee_clients ec ON ec.client_id = c.id
+     WHERE ec.employee_id = $1 AND c.status = 'ativo'
+     ORDER BY c.razao_social ASC`,
+    [employeeId]
+  );
+}
