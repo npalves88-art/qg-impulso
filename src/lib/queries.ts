@@ -19,23 +19,49 @@ export async function getExecutiveDashboard(companyId: number) {
   const days = lastNDates(30);
   const last7 = days.slice(-7);
 
-  const kpis = await query<any>(
-    `SELECT date, revenue, orders, avg_ticket, conversion, ctr, error_rate
-     FROM kpi_snapshots WHERE company_id = $1 AND date IN (${inPlaceholders(2, days.length)})
-     ORDER BY date ASC`,
+  const dailyMetrics = await query<any>(
+    `SELECT am.date,
+            SUM(am.revenue) as revenue,
+            SUM(am.orders) as orders,
+            SUM(am.impressions) as impressions,
+            SUM(am.clicks) as clicks
+     FROM ad_metrics am
+     JOIN ads a ON a.id = am.ad_id
+     JOIN products p ON p.id = a.product_id
+     WHERE p.company_id = $1 AND am.date IN (${inPlaceholders(2, days.length)})
+     GROUP BY am.date ORDER BY am.date ASC`,
     [companyId, ...days]
   );
 
+  const kpis = dailyMetrics.map((d) => ({
+    date: d.date,
+    revenue: Number(d.revenue) || 0,
+    orders: Number(d.orders) || 0,
+    impressions: Number(d.impressions) || 0,
+    clicks: Number(d.clicks) || 0,
+  }));
+
   const last7Kpis = kpis.filter((k) => last7.includes(k.date));
   const sum = (arr: any[], key: string) => arr.reduce((s, r) => s + (r[key] || 0), 0);
-  const avg = (arr: any[], key: string) => (arr.length ? sum(arr, key) / arr.length : 0);
 
   const revenue7 = sum(last7Kpis, "revenue");
   const orders7 = sum(last7Kpis, "orders");
+  const impressions7 = sum(last7Kpis, "impressions");
+  const clicks7 = sum(last7Kpis, "clicks");
   const avgTicket7 = orders7 > 0 ? revenue7 / orders7 : 0;
-  const conversion7 = avg(last7Kpis, "conversion");
-  const ctr7 = avg(last7Kpis, "ctr");
-  const errorRate7 = avg(last7Kpis, "error_rate");
+  const conversion7 = clicks7 > 0 ? (orders7 / clicks7) * 100 : 0;
+  const ctr7 = impressions7 > 0 ? (clicks7 / impressions7) * 100 : 0;
+
+  const shipments7Rows = await query<{ c: number }>(
+    `SELECT COUNT(*) as c FROM shipments WHERE company_id = $1 AND date IN (${inPlaceholders(2, last7.length)})`,
+    [companyId, ...last7]
+  );
+  const errors7Rows = await query<{ c: number }>(
+    `SELECT COUNT(*) as c FROM operational_errors WHERE company_id = $1 AND date IN (${inPlaceholders(2, last7.length)})`,
+    [companyId, ...last7]
+  );
+  const shipments7 = Number(shipments7Rows[0].c);
+  const errorRate7 = shipments7 > 0 ? (Number(errors7Rows[0].c) / shipments7) * 100 : 0;
 
   const openComplaintsRows = await query<{ c: number }>(
     `SELECT COUNT(*) as c FROM complaints WHERE company_id = $1 AND status = 'aberta'`,
