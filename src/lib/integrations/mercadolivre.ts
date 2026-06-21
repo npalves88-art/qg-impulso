@@ -81,10 +81,24 @@ export async function getValidAccessToken(integration: IntegrationRow): Promise<
   return refreshed.access_token;
 }
 
-async function authedFetch(path: string, accessToken: string) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function authedFetch(path: string, accessToken: string, attempt = 1): Promise<any> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (err) {
+    // Transient network failures (e.g. ECONNRESET on cold serverless connections) get one retry.
+    if (attempt < 2) {
+      await sleep(400);
+      return authedFetch(path, accessToken, attempt + 1);
+    }
+    throw err;
+  }
   if (!res.ok) throw new Error(`Erro ao consultar Mercado Livre (${path}): ${res.status}`);
   return res.json();
 }
