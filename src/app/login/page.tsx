@@ -3,17 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const DEMO_USERS = [
-  { label: "Administrador", email: "admin@qgimpulso.com" },
-  { label: "Gestor", email: "gestor@qgimpulso.com" },
-  { label: "Operador", email: "operador@qgimpulso.com" },
-  { label: "Analista", email: "analista@qgimpulso.com" },
-];
-
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@qgimpulso.com");
-  const [password, setPassword] = useState("impulso123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -98,27 +91,6 @@ export default function LoginPage() {
             {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
-
-        <div className="mt-6 card p-4">
-          <p className="text-xs uppercase tracking-wide text-[#F5F3EF]/40 mb-2">Acesso de demonstração</p>
-          <div className="grid grid-cols-2 gap-2">
-            {DEMO_USERS.map((u) => (
-              <button
-                key={u.email}
-                type="button"
-                onClick={() => {
-                  setEmail(u.email);
-                  setPassword("impulso123");
-                }}
-                className="text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-[#F5F3EF]/80 transition"
-              >
-                <span className="block font-medium">{u.label}</span>
-                <span className="block text-[#F5F3EF]/40">{u.email}</span>
-              </button>
-            ))}
-          </div>
-          <p className="text-[10px] text-[#F5F3EF]/30 mt-3">Senha para todos: impulso123</p>
-        </div>
       </div>
     </div>
   );
