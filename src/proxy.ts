@@ -20,6 +20,7 @@ const OPERADOR_ALLOWED_PATHS = [
   "/api/auth/",
   "/api/ad-generator",
   "/api/ai-chat",
+  "/api/team-activities",
 ];
 const OPERADOR_DEFAULT_PATH = "/anuncio-turbo";
 

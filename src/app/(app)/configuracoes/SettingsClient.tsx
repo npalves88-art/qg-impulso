@@ -92,12 +92,13 @@ export default function SettingsClient({
   const [employeeForm, setEmployeeForm] = useState({ name: "", role: "", area: "Marketing", email: "" });
   const [productForm, setProductForm] = useState({ name: "", category: "", cost_price: "", sale_price: "", stock: "" });
   const [status, setStatus] = useState("");
-  const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "Operador" });
+  const [userForm, setUserForm] = useState({ name: "", email: "", password: "", role: "Operador", employeeId: "" });
   const [savingUser, setSavingUser] = useState(false);
   const [userActionId, setUserActionId] = useState<number | null>(null);
 
   const isAdmin = currentUser.role === "Administrador";
   const ROLE_OPTIONS = ["Administrador", "Gestor", "Operador", "Analista"];
+  const employeesWithoutLogin = employees.filter((e) => !e.has_login);
 
   async function addUser(e: React.FormEvent) {
     e.preventDefault();
@@ -106,11 +107,14 @@ export default function SettingsClient({
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userForm),
+        body: JSON.stringify({
+          ...userForm,
+          employeeId: userForm.employeeId ? Number(userForm.employeeId) : undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
-        setUserForm({ name: "", email: "", password: "", role: "Operador" });
+        setUserForm({ name: "", email: "", password: "", role: "Operador", employeeId: "" });
         setStatus("Usuário criado.");
         router.refresh();
       } else {
@@ -295,7 +299,14 @@ export default function SettingsClient({
               {employees.map((e) => (
                 <div key={e.id} className="flex justify-between border-b border-white/5 pb-2">
                   <span className="text-sm">{e.name}</span>
-                  <span className="text-xs text-[#F5F3EF]/40">{e.role} · {e.area}</span>
+                  <span className="text-xs text-[#F5F3EF]/40 flex items-center gap-2">
+                    {e.role} · {e.area}
+                    {e.has_login && (
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px]">
+                        acesso
+                      </span>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>
@@ -405,11 +416,37 @@ export default function SettingsClient({
           {isAdmin && (
             <form onSubmit={addUser} className="card p-6 space-y-4 h-fit">
               <p className="text-sm font-medium text-[#F5F3EF]/80">Cadastrar Usuário</p>
+              {employeesWithoutLogin.length > 0 && (
+                <div>
+                  <label className="block text-xs uppercase tracking-wide text-[#F5F3EF]/50 mb-1">
+                    Vincular a colaborador existente (opcional)
+                  </label>
+                  <select
+                    value={userForm.employeeId}
+                    onChange={(e) => {
+                      const emp = employeesWithoutLogin.find((x) => String(x.id) === e.target.value);
+                      setUserForm({
+                        ...userForm,
+                        employeeId: e.target.value,
+                        name: emp ? emp.name : userForm.name,
+                        email: emp?.email || userForm.email,
+                      });
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
+                  >
+                    <option value="">Criar novo cadastro</option>
+                    {employeesWithoutLogin.map((emp) => (
+                      <option key={emp.id} value={emp.id}>{emp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <input
                 value={userForm.name}
                 onChange={(e) => setUserForm({ ...userForm, name: e.target.value })}
                 placeholder="Nome completo"
-                className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00]"
+                disabled={!!userForm.employeeId}
+                className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 outline-none focus:border-[#FF6B00] disabled:opacity-50"
                 required
               />
               <input

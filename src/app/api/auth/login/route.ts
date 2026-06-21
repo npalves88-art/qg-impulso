@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
     avatar_color: string;
     role_name: string;
   }>(
-    `SELECT u.*, r.name as role_name
-     FROM users u JOIN roles r ON r.id = u.role_id
-     WHERE u.email = $1`,
+    `SELECT e.*, r.name as role_name
+     FROM employees e JOIN roles r ON r.id = e.role_id
+     WHERE e.email = $1 AND e.password_hash IS NOT NULL`,
     [email]
   );
   const user = users[0];

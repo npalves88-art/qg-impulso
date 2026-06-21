@@ -544,10 +544,39 @@ async function seed(pool: Pool) {
   }
 }
 
+async function migrateEmployeesUsersUnification(pool: Pool) {
+  await pool.query(`
+    ALTER TABLE employees ALTER COLUMN role DROP NOT NULL;
+    ALTER TABLE employees ALTER COLUMN area DROP NOT NULL;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_hash TEXT;
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES roles(id);
+    ALTER TABLE employees ADD COLUMN IF NOT EXISTS avatar_color TEXT DEFAULT '#FF6B00';
+    CREATE UNIQUE INDEX IF NOT EXISTS employees_email_unique_idx ON employees (email) WHERE email IS NOT NULL;
+  `);
+
+  const usersRes = await pool.query(`SELECT * FROM users`);
+  for (const u of usersRes.rows) {
+    const existing = await pool.query(`SELECT id FROM employees WHERE email = $1`, [u.email]);
+    if (existing.rows.length > 0) {
+      await pool.query(
+        `UPDATE employees SET password_hash = $1, role_id = $2, avatar_color = $3 WHERE id = $4`,
+        [u.password_hash, u.role_id, u.avatar_color, existing.rows[0].id]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO employees (company_id, name, email, password_hash, role_id, avatar_color, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'ativo')`,
+        [u.company_id, u.name, u.email, u.password_hash, u.role_id, u.avatar_color]
+      );
+    }
+  }
+}
+
 export async function ensureSchemaAndSeed(): Promise<void> {
   const pool = await getPool();
   await createSchema(pool);
   await seed(pool);
+  await migrateEmployeesUsersUnification(pool);
 }
 
 function ensureInit(): Promise<void> {

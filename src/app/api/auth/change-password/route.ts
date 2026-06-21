@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "A nova senha precisa ter pelo menos 6 caracteres." }, { status: 400 });
   }
 
-  const user = (await query<{ password_hash: string }>(`SELECT password_hash FROM users WHERE id = $1`, [
+  const user = (await query<{ password_hash: string }>(`SELECT password_hash FROM employees WHERE id = $1`, [
     session.userId,
   ]))[0];
   if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) {
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   const newHash = bcrypt.hashSync(newPassword, 10);
-  await query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [newHash, session.userId]);
+  await query(`UPDATE employees SET password_hash = $1 WHERE id = $2`, [newHash, session.userId]);
 
   return NextResponse.json({ ok: true });
 }

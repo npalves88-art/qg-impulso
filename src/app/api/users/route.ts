@@ -10,8 +10,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Apenas administradores podem criar usuários." }, { status: 403 });
   }
 
-  const { name, email, password, role } = await req.json();
-  if (!name || !email || !password || !role) {
+  const { name, email, password, role, employeeId } = await req.json();
+  if (!email || !password || !role || (!employeeId && !name)) {
     return NextResponse.json({ error: "Preencha nome, e-mail, senha e perfil." }, { status: 400 });
   }
 
@@ -20,19 +20,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
   }
 
-  const existing = await query(`SELECT id FROM users WHERE email = $1`, [email]);
-  if (existing.length > 0) {
-    return NextResponse.json({ error: "Já existe um usuário com esse e-mail." }, { status: 400 });
+  const existing = await query<{ id: number }>(`SELECT id FROM employees WHERE email = $1`, [email]);
+  if (existing.length > 0 && existing[0].id !== employeeId) {
+    return NextResponse.json({ error: "Já existe um cadastro com esse e-mail." }, { status: 400 });
   }
 
   const colors = ["#FF6B00", "#123C4A", "#2E7D32", "#7B1FA2", "#C2185B", "#0277BD"];
   const avatarColor = colors[Math.floor(Math.random() * colors.length)];
   const passwordHash = bcrypt.hashSync(password, 10);
 
-  await query(
-    `INSERT INTO users (company_id, role_id, name, email, password_hash, avatar_color) VALUES ($1, $2, $3, $4, $5, $6)`,
-    [session.companyId, roleRow.id, name, email, passwordHash, avatarColor]
-  );
+  if (employeeId) {
+    await query(
+      `UPDATE employees SET email = $1, password_hash = $2, role_id = $3 WHERE id = $4 AND company_id = $5`,
+      [email, passwordHash, roleRow.id, employeeId, session.companyId]
+    );
+  } else {
+    await query(
+      `INSERT INTO employees (company_id, name, email, password_hash, role_id, avatar_color, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'ativo')`,
+      [session.companyId, name, email, passwordHash, roleRow.id, avatarColor]
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

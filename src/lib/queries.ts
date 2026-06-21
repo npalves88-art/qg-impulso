@@ -122,6 +122,44 @@ export async function getTeamRadar(companyId: number) {
   return { employees: ranking };
 }
 
+function sumActivities(activities: any[]) {
+  return activities.reduce(
+    (acc, a) => ({
+      skus_worked: acc.skus_worked + a.skus_worked,
+      ads_created: acc.ads_created + a.ads_created,
+      images_made: acc.images_made + a.images_made,
+      orders_picked: acc.orders_picked + a.orders_picked,
+      orders_shipped: acc.orders_shipped + a.orders_shipped,
+      score: acc.score + a.score,
+    }),
+    { skus_worked: 0, ads_created: 0, images_made: 0, orders_picked: 0, orders_shipped: 0, score: 0 }
+  );
+}
+
+export async function getOwnProductivity(employeeId: number) {
+  const days30 = lastNDates(30);
+  const yesterday = [days30[days30.length - 2]];
+  const last7 = days30.slice(-7);
+
+  const all = await query<any>(
+    `SELECT * FROM team_activities WHERE employee_id = $1 AND date IN (${inPlaceholders(2, days30.length)}) ORDER BY date ASC`,
+    [employeeId, ...days30]
+  );
+
+  const byDate: Record<string, any> = {};
+  for (const a of all) byDate[a.date] = a;
+
+  const yesterdayActivities = yesterday.filter((d) => byDate[d]).map((d) => byDate[d]);
+  const last7Activities = last7.filter((d) => byDate[d]).map((d) => byDate[d]);
+
+  return {
+    yesterday: sumActivities(yesterdayActivities),
+    last7Days: sumActivities(last7Activities),
+    lastMonth: sumActivities(all),
+    daily: all,
+  };
+}
+
 export async function getOperationalRadar(companyId: number) {
   const days30 = lastNDates(30);
 
@@ -324,7 +362,12 @@ export async function getProducts(companyId: number) {
 }
 
 export async function getEmployees(companyId: number) {
-  return query<any>(`SELECT * FROM employees WHERE company_id = $1 ORDER BY name ASC`, [companyId]);
+  return query<any>(
+    `SELECT id, company_id, name, role, area, email, admission_date, status, avatar_color,
+            (password_hash IS NOT NULL) as has_login
+     FROM employees WHERE company_id = $1 ORDER BY name ASC`,
+    [companyId]
+  );
 }
 
 export async function getCompany(companyId: number) {
@@ -334,8 +377,10 @@ export async function getCompany(companyId: number) {
 
 export async function getUsers(companyId: number) {
   return query<any>(
-    `SELECT u.id, u.name, u.email, u.avatar_color, r.name as role
-     FROM users u JOIN roles r ON r.id = u.role_id WHERE u.company_id = $1`,
+    `SELECT e.id, e.name, e.email, e.avatar_color, r.name as role
+     FROM employees e JOIN roles r ON r.id = e.role_id
+     WHERE e.company_id = $1 AND e.password_hash IS NOT NULL
+     ORDER BY e.name ASC`,
     [companyId]
   );
 }
