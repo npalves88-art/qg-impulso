@@ -159,7 +159,9 @@ export async function syncMercadoLivre(companyId: number) {
     importedAds++;
 
     try {
-      const visits = (await authedFetch(`/items/${itemId}/visits?last=1&unit=day`, accessToken)) as { total_visits?: number };
+      const visits = (await authedFetch(`/items/${itemId}/visits/time_window?last=1&unit=day`, accessToken)) as {
+        total_visits?: number;
+      };
       const today = new Date().toISOString().slice(0, 10);
       const existingMetric = (
         await query<{ id: number }>(`SELECT id FROM ad_metrics WHERE ad_id = $1 AND date = $2`, [adId, today])
@@ -176,8 +178,8 @@ export async function syncMercadoLivre(companyId: number) {
         );
       }
       importedMetrics++;
-    } catch {
-      // visits endpoint may be unavailable for some item types; continue sync
+    } catch (err) {
+      console.error(`Erro ao buscar visitas do item ${itemId}:`, err);
     }
   }
 
