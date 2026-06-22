@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   fetchItem,
   fetchOrder,
@@ -22,9 +22,10 @@ export async function POST(req: NextRequest) {
 
   const { topic, resource, user_id } = body || {};
 
-  // Fire-and-forget; do not await before responding.
-  process.nextTick(() => {
-    handleNotification(topic, resource, user_id).catch((err) => {
+  // Runs after the response is sent, but the platform keeps the function alive until it
+  // finishes (unlike process.nextTick, which can get frozen mid-flight in serverless).
+  after(() => {
+    return handleNotification(topic, resource, user_id).catch((err) => {
       console.error("Erro ao processar notificação do Mercado Livre:", err);
     });
   });
