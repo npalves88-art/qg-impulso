@@ -196,21 +196,7 @@ export async function getTeamRadar(companyId: number) {
   return { employees: ranking };
 }
 
-export async function getOwnDashboard(employeeId: number) {
-  const allReportsRes = await query<any>(
-    `SELECT * FROM daily_reports WHERE employee_id = $1 ORDER BY date DESC`,
-    [employeeId]
-  );
-  const reportIds = allReportsRes.map((r) => r.id);
-  const allSkus = reportIds.length
-    ? await query<any>(`SELECT * FROM daily_report_skus WHERE daily_report_id = ANY($1::int[])`, [reportIds])
-    : [];
-
-  const skusByReport: Record<number, any[]> = {};
-  for (const s of allSkus) {
-    (skusByReport[s.daily_report_id] ||= []).push(s);
-  }
-
+function summarizeDailyReports(allReportsRes: any[], skusByReport: Record<number, any[]>, recentLimit = 10) {
   const days7 = lastNDates(7);
   const days30 = lastNDates(30);
 
@@ -252,7 +238,7 @@ export async function getOwnDashboard(employeeId: number) {
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count);
 
-  const recentEntries = allReportsRes.slice(0, 10).map((r) => {
+  const recentEntries = allReportsRes.slice(0, recentLimit).map((r) => {
     const skus = skusByReport[r.id] || [];
     let ads = 0;
     let seo = 0;
@@ -266,6 +252,7 @@ export async function getOwnDashboard(employeeId: number) {
     return {
       date: r.date,
       cliente: r.cliente,
+      employeeName: r.employee_name,
       skus: skus.length,
       ads,
       seo,
@@ -285,6 +272,81 @@ export async function getOwnDashboard(employeeId: number) {
     rankingGargalos,
     recentEntries,
   };
+}
+
+async function loadSkusByReport(reportIds: number[]) {
+  const allSkus = reportIds.length
+    ? await query<any>(`SELECT * FROM daily_report_skus WHERE daily_report_id = ANY($1::int[])`, [reportIds])
+    : [];
+  const skusByReport: Record<number, any[]> = {};
+  for (const s of allSkus) {
+    (skusByReport[s.daily_report_id] ||= []).push(s);
+  }
+  return skusByReport;
+}
+
+export async function getOwnDashboard(employeeId: number) {
+  const allReportsRes = await query<any>(
+    `SELECT * FROM daily_reports WHERE employee_id = $1 ORDER BY date DESC`,
+    [employeeId]
+  );
+  const skusByReport = await loadSkusByReport(allReportsRes.map((r) => r.id));
+  return summarizeDailyReports(allReportsRes, skusByReport);
+}
+
+export async function getTeamDashboard(companyId: number) {
+  const allReportsRes = await query<any>(
+    `SELECT dr.*, e.name as employee_name FROM daily_reports dr
+     JOIN employees e ON e.id = dr.employee_id
+     WHERE e.company_id = $1 ORDER BY dr.date DESC`,
+    [companyId]
+  );
+  const skusByReport = await loadSkusByReport(allReportsRes.map((r) => r.id));
+  return summarizeDailyReports(allReportsRes, skusByReport, 30);
+}
+
+export async function getTeamDailyReports(companyId: number) {
+  const allReportsRes = await query<any>(
+    `SELECT dr.*, e.name as employee_name FROM daily_reports dr
+     JOIN employees e ON e.id = dr.employee_id
+     WHERE e.company_id = $1 ORDER BY dr.date DESC, e.name ASC`,
+    [companyId]
+  );
+  const reportIds = allReportsRes.map((r) => r.id);
+  const skusByReport = await loadSkusByReport(reportIds);
+  const pendenciasRows = reportIds.length
+    ? await query<any>(`SELECT * FROM daily_report_pendencias WHERE daily_report_id = ANY($1::int[])`, [reportIds])
+    : [];
+  const planejamentoRows = reportIds.length
+    ? await query<any>(`SELECT * FROM daily_report_planejamento WHERE daily_report_id = ANY($1::int[])`, [reportIds])
+    : [];
+
+  const pendByReport: Record<number, any[]> = {};
+  for (const p of pendenciasRows) (pendByReport[p.daily_report_id] ||= []).push(p);
+  const planByReport: Record<number, any[]> = {};
+  for (const p of planejamentoRows) (planByReport[p.daily_report_id] ||= []).push(p);
+
+  return allReportsRes.map((r) => ({
+    date: r.date,
+    employeeName: r.employee_name,
+    cliente: r.cliente,
+    skus: (skusByReport[r.id] || []).map((s) => ({
+      sku_code: s.sku_code,
+      product_name: s.product_name,
+      activities: s.activities || [],
+      observacao: s.observacao,
+    })),
+    pendencias: (pendByReport[r.id] || []).map((p) => ({ sku_code: p.sku_code, motivo: p.motivo })),
+    planejamento: (planByReport[r.id] || []).map((p) => ({
+      sku_code: p.sku_code,
+      produto: p.produto,
+      atividade: p.atividade,
+    })),
+    gargalos: r.gargalos || [],
+    gargalosDetalhamento: r.gargalos_detalhamento,
+    selfScore: r.self_score,
+    analysis: r.ai_analysis,
+  }));
 }
 
 export async function getOperationalRadar(companyId: number) {

@@ -1,19 +1,28 @@
 import { getSession } from "@/lib/auth";
-import { getTeamRadar, getOwnDashboard, getClientsForEmployee } from "@/lib/queries";
+import {
+  getTeamRadar,
+  getOwnDashboard,
+  getClientsForEmployee,
+  getTeamDashboard,
+  getTeamDailyReports,
+} from "@/lib/queries";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import { Trophy, Boxes, Image as ImageIcon } from "lucide-react";
 import OwnRadarTabs from "./OwnRadarTabs";
+import AdminRadarTabs from "./AdminRadarTabs";
 
 export const dynamic = "force-dynamic";
 
 export default async function RadarEquipePage() {
   const session = await getSession();
-  const isManager = ["Administrador", "Gestor", "Analista"].includes(session!.role);
-  const dashboardData = await getOwnDashboard(session!.userId);
-  const myClients = await getClientsForEmployee(session!.userId);
+  const role = session!.role;
+  const isAdmin = role === "Administrador";
+  const isManager = ["Administrador", "Gestor", "Analista"].includes(role);
 
   if (!isManager) {
+    const dashboardData = await getOwnDashboard(session!.userId);
+    const myClients = await getClientsForEmployee(session!.userId);
     return (
       <div>
         <PageHeader title="Radar Equipe" subtitle={`Sua produtividade — ${session!.name}.`} />
@@ -87,8 +96,25 @@ export default async function RadarEquipePage() {
         </div>
       </div>
 
-      <p className="text-sm font-medium text-[#F5F3EF]/80 mb-4">Seu Registro Pessoal</p>
-      <OwnRadarTabs dashboardData={dashboardData} clients={myClients} />
+      {isAdmin ? (
+        <>
+          <p className="text-sm font-medium text-[#F5F3EF]/80 mb-4">
+            Acompanhamento da Equipe — relatórios diários e dashboard consolidado
+          </p>
+          <AdminRadarTabs
+            teamReports={await getTeamDailyReports(session!.companyId)}
+            teamDashboard={await getTeamDashboard(session!.companyId)}
+          />
+        </>
+      ) : (
+        <>
+          <p className="text-sm font-medium text-[#F5F3EF]/80 mb-4">Seu Registro Pessoal</p>
+          <OwnRadarTabs
+            dashboardData={await getOwnDashboard(session!.userId)}
+            clients={await getClientsForEmployee(session!.userId)}
+          />
+        </>
+      )}
     </div>
   );
 }

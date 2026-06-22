@@ -55,6 +55,7 @@ export default function DashboardView({ data }: { data: any }) {
             <thead>
               <tr className="text-left text-[#F5F3EF]/40 text-xs uppercase">
                 <th className="py-2">Data</th>
+                {data.recentEntries[0]?.employeeName && <th className="py-2">Colaborador</th>}
                 <th className="py-2">Cliente</th>
                 <th className="py-2">SKUs</th>
                 <th className="py-2">Anúncios</th>
@@ -66,14 +67,15 @@ export default function DashboardView({ data }: { data: any }) {
             <tbody>
               {data.recentEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-[#F5F3EF]/40">
+                  <td colSpan={8} className="py-4 text-center text-[#F5F3EF]/40">
                     Nenhum registro ainda.
                   </td>
                 </tr>
               ) : (
-                data.recentEntries.map((e: any) => (
-                  <tr key={e.date} className="border-t border-white/5">
+                data.recentEntries.map((e: any, i: number) => (
+                  <tr key={`${e.date}-${e.employeeName || ""}-${i}`} className="border-t border-white/5">
                     <td className="py-2.5">{e.date}</td>
+                    {e.employeeName && <td className="py-2.5 font-medium">{e.employeeName}</td>}
                     <td className="py-2.5 text-[#F5F3EF]/60">{e.cliente || "-"}</td>
                     <td className="py-2.5">{e.skus}</td>
                     <td className="py-2.5">{e.ads}</td>
