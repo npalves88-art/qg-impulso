@@ -91,6 +91,8 @@ export default function SettingsClient({
     cnpj: company?.cnpj || "",
     segment: company?.segment || "",
   });
+  const [logoUrl, setLogoUrl] = useState<string | null>(company?.logo_url || null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const [employeeForm, setEmployeeForm] = useState({ name: "", role: "", area: "Marketing", email: "" });
   const [productForm, setProductForm] = useState({ name: "", category: "", cost_price: "", sale_price: "", stock: "" });
@@ -162,6 +164,51 @@ export default function SettingsClient({
     router.refresh();
   }
 
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1_500_000) {
+      alert("Imagem muito grande. Escolha um arquivo de até ~1,5MB.");
+      return;
+    }
+    setUploadingLogo(true);
+    try {
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch("/api/company", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logo_url: dataUrl }),
+      });
+      if (res.ok) {
+        setLogoUrl(dataUrl);
+        setStatus("Logo atualizado.");
+        router.refresh();
+      } else {
+        alert((await res.json()).error || "Falha ao enviar logo.");
+      }
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function removeLogo() {
+    if (!confirm("Remover o logo da empresa?")) return;
+    const res = await fetch("/api/company", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ logo_url: null }),
+    });
+    if (res.ok) {
+      setLogoUrl(null);
+      router.refresh();
+    }
+  }
+
   async function addEmployee(e: React.FormEvent) {
     e.preventDefault();
     const res = await fetch("/api/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(employeeForm) });
@@ -208,6 +255,32 @@ export default function SettingsClient({
       </div>
 
       {status && <p className="text-sm text-emerald-400 mb-4">{status}</p>}
+
+      {tab === "empresa" && (
+        <div className="card p-6 max-w-lg space-y-4 mb-6">
+          <label className="block text-xs uppercase tracking-wide text-[#F5F3EF]/50 mb-1">Logo da Empresa</label>
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-xl bg-black/30 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-xs text-[#F5F3EF]/30">Sem logo</span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm cursor-pointer transition w-fit">
+                {uploadingLogo ? "Enviando..." : "Escolher imagem"}
+                <input type="file" accept="image/*" onChange={handleLogoChange} disabled={uploadingLogo} className="hidden" />
+              </label>
+              {logoUrl && (
+                <button onClick={removeLogo} className="text-xs text-[#F5F3EF]/40 hover:text-red-400 transition text-left">
+                  Remover logo
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {tab === "empresa" && (
         <form onSubmit={saveCompany} className="card p-6 max-w-lg space-y-4">

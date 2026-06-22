@@ -38,8 +38,10 @@ const OPERADOR_NAV_ITEMS = [
 
 export default function Sidebar({
   user,
+  logoUrl,
 }: {
   user: { name: string; role: string; avatarColor: string };
+  logoUrl?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -54,9 +56,13 @@ export default function Sidebar({
   return (
     <aside className="hidden md:flex w-72 flex-col border-r border-white/5 bg-[#0F0F10] h-screen sticky top-0">
       <div className="px-6 py-6 flex items-center gap-2">
-        <div className="w-9 h-9 rounded-lg bg-[#FF6B00] flex items-center justify-center font-bold text-[#0F0F10]">
-          Q
-        </div>
+        {logoUrl ? (
+          <img src={logoUrl} alt="Logo" className="w-9 h-9 rounded-lg object-contain bg-white/5" />
+        ) : (
+          <div className="w-9 h-9 rounded-lg bg-[#FF6B00] flex items-center justify-center font-bold text-[#0F0F10]">
+            Q
+          </div>
+        )}
         <div>
           <p className="font-semibold leading-tight">QG Impulso</p>
           <p className="text-[10px] text-[#F5F3EF]/40 uppercase tracking-wide">Centro de Comando</p>
