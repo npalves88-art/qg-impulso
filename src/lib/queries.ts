@@ -24,7 +24,8 @@ export async function getExecutiveDashboard(companyId: number) {
             SUM(am.revenue) as revenue,
             SUM(am.orders) as orders,
             SUM(am.impressions) as impressions,
-            SUM(am.clicks) as clicks
+            SUM(am.clicks) as clicks,
+            SUM(am.visits) as visits
      FROM ad_metrics am
      JOIN ads a ON a.id = am.ad_id
      JOIN products p ON p.id = a.product_id
@@ -39,6 +40,7 @@ export async function getExecutiveDashboard(companyId: number) {
     orders: Number(d.orders) || 0,
     impressions: Number(d.impressions) || 0,
     clicks: Number(d.clicks) || 0,
+    visits: Number(d.visits) || 0,
   }));
 
   const last7Kpis = kpis.filter((k) => last7.includes(k.date));
@@ -56,11 +58,9 @@ export async function getExecutiveDashboard(companyId: number) {
   const todayKpis = kpis.filter((k) => k.date === today);
   const revenueToday = sum(todayKpis, "revenue");
   const ordersToday = sum(todayKpis, "orders");
-  const impressionsToday = sum(todayKpis, "impressions");
-  const clicksToday = sum(todayKpis, "clicks");
+  const visitsToday = sum(todayKpis, "visits");
   const avgTicketToday = ordersToday > 0 ? revenueToday / ordersToday : 0;
-  const conversionToday = clicksToday > 0 ? (ordersToday / clicksToday) * 100 : 0;
-  const ctrToday = impressionsToday > 0 ? (clicksToday / impressionsToday) * 100 : 0;
+  const conversionToday = visitsToday > 0 ? (ordersToday / visitsToday) * 100 : 0;
 
   const shipments7Rows = await query<{ c: number }>(
     `SELECT COUNT(*) as c FROM shipments WHERE company_id = $1 AND date IN (${inPlaceholders(2, last7.length)})`,
@@ -119,7 +119,7 @@ export async function getExecutiveDashboard(companyId: number) {
     ordersToday,
     avgTicketToday,
     conversionToday,
-    ctrToday,
+    visitsToday,
     openComplaints: Number(openComplaintsRows[0].c),
     openErrors: Number(openErrorsRows[0].c),
     criticalProducts,

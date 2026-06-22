@@ -4,7 +4,7 @@ import { autoSyncMercadoLivreIfStale } from "@/lib/integrations/auto-sync";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
 import RevenueChart from "./RevenueChart";
-import { DollarSign, ShoppingCart, Receipt, Percent, MousePointerClick, AlertTriangle } from "lucide-react";
+import { DollarSign, ShoppingCart, Receipt, Percent, MousePointerClick, AlertTriangle, Eye } from "lucide-react";
 
 const BRL = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
         <StatCard label="Pedidos (hoje)" value={String(data.ordersToday)} icon={ShoppingCart} accent="petrol" />
         <StatCard label="Ticket Médio (hoje)" value={BRL(data.avgTicketToday)} icon={Receipt} />
         <StatCard label="Conversão (hoje)" value={`${data.conversionToday.toFixed(2)}%`} icon={Percent} />
-        <StatCard label="CTR (hoje)" value={`${data.ctrToday.toFixed(2)}%`} icon={MousePointerClick} />
+        <StatCard label="Visitas (hoje)" value={String(data.visitsToday)} icon={Eye} />
       </div>
 
       <p className="text-xs uppercase tracking-wide text-[#F5F3EF]/40 mb-3">Últimos 7 dias</p>
