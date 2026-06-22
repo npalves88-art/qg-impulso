@@ -52,6 +52,16 @@ export async function getExecutiveDashboard(companyId: number) {
   const conversion7 = clicks7 > 0 ? (orders7 / clicks7) * 100 : 0;
   const ctr7 = impressions7 > 0 ? (clicks7 / impressions7) * 100 : 0;
 
+  const today = days[days.length - 1];
+  const todayKpis = kpis.filter((k) => k.date === today);
+  const revenueToday = sum(todayKpis, "revenue");
+  const ordersToday = sum(todayKpis, "orders");
+  const impressionsToday = sum(todayKpis, "impressions");
+  const clicksToday = sum(todayKpis, "clicks");
+  const avgTicketToday = ordersToday > 0 ? revenueToday / ordersToday : 0;
+  const conversionToday = clicksToday > 0 ? (ordersToday / clicksToday) * 100 : 0;
+  const ctrToday = impressionsToday > 0 ? (clicksToday / impressionsToday) * 100 : 0;
+
   const shipments7Rows = await query<{ c: number }>(
     `SELECT COUNT(*) as c FROM shipments WHERE company_id = $1 AND date IN (${inPlaceholders(2, last7.length)})`,
     [companyId, ...last7]
@@ -105,6 +115,11 @@ export async function getExecutiveDashboard(companyId: number) {
     conversion7,
     ctr7,
     errorRate7,
+    revenueToday,
+    ordersToday,
+    avgTicketToday,
+    conversionToday,
+    ctrToday,
     openComplaints: Number(openComplaintsRows[0].c),
     openErrors: Number(openErrorsRows[0].c),
     criticalProducts,

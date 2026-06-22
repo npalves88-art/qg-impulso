@@ -20,9 +20,19 @@ export default async function DashboardPage() {
     <div>
       <PageHeader
         title="Dashboard Executivo"
-        subtitle="Visão geral da operação nos últimos 7 dias."
+        subtitle="Visão geral da operação — hoje e nos últimos 7 dias."
       />
 
+      <p className="text-xs uppercase tracking-wide text-[#F5F3EF]/40 mb-3">Hoje</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+        <StatCard label="Faturamento (hoje)" value={BRL(data.revenueToday)} icon={DollarSign} accent="orange" />
+        <StatCard label="Pedidos (hoje)" value={String(data.ordersToday)} icon={ShoppingCart} accent="petrol" />
+        <StatCard label="Ticket Médio (hoje)" value={BRL(data.avgTicketToday)} icon={Receipt} />
+        <StatCard label="Conversão (hoje)" value={`${data.conversionToday.toFixed(2)}%`} icon={Percent} />
+        <StatCard label="CTR (hoje)" value={`${data.ctrToday.toFixed(2)}%`} icon={MousePointerClick} />
+      </div>
+
+      <p className="text-xs uppercase tracking-wide text-[#F5F3EF]/40 mb-3">Últimos 7 dias</p>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <StatCard label="Faturamento (7d)" value={BRL(data.revenue7)} icon={DollarSign} accent="orange" />
         <StatCard label="Pedidos (7d)" value={String(data.orders7)} icon={ShoppingCart} accent="petrol" />
