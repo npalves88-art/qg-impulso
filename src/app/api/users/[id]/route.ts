@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
@@ -11,7 +12,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const userId = Number(id);
-  const { name, role } = await req.json();
+  const { name, role, new_password } = await req.json();
 
   const target = (await query<{ id: number }>(`SELECT id FROM employees WHERE id = $1 AND company_id = $2`, [
     userId,
@@ -26,6 +27,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const roleRow = (await query<{ id: number }>(`SELECT id FROM roles WHERE name = $1`, [role]))[0];
     if (!roleRow) return NextResponse.json({ error: "Perfil inválido." }, { status: 400 });
     await query(`UPDATE employees SET role_id = $1 WHERE id = $2`, [roleRow.id, userId]);
+  }
+  if (new_password) {
+    if (String(new_password).length < 6) {
+      return NextResponse.json({ error: "A nova senha precisa ter pelo menos 6 caracteres." }, { status: 400 });
+    }
+    const newHash = bcrypt.hashSync(String(new_password), 10);
+    await query(`UPDATE employees SET password_hash = $1 WHERE id = $2`, [newHash, userId]);
   }
 
   return NextResponse.json({ ok: true });

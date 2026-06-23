@@ -145,6 +145,23 @@ export default function SettingsClient({
     }
   }
 
+  async function resetUserPassword(userId: number, name: string) {
+    const newPassword = prompt(`Nova senha para "${name}" (mínimo 6 caracteres):`);
+    if (!newPassword) return;
+    setUserActionId(userId);
+    try {
+      const res = await fetch(`/api/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_password: newPassword }),
+      });
+      if (res.ok) alert(`Senha de "${name}" redefinida com sucesso.`);
+      else alert((await res.json()).error || "Falha ao redefinir senha.");
+    } finally {
+      setUserActionId(null);
+    }
+  }
+
   async function deleteUser(userId: number, name: string) {
     if (!confirm(`Excluir o usuário "${name}"? Essa ação não pode ser desfeita.`)) return;
     setUserActionId(userId);
@@ -584,6 +601,13 @@ export default function SettingsClient({
                           <option key={r} value={r} className="text-black">{r}</option>
                         ))}
                       </select>
+                      <button
+                        onClick={() => resetUserPassword(u.id, u.name)}
+                        disabled={userActionId === u.id}
+                        className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition disabled:opacity-50"
+                      >
+                        Redefinir senha
+                      </button>
                       {u.email !== currentUser.email && (
                         <button
                           onClick={() => deleteUser(u.id, u.name)}

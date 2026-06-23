@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/central-indicadores", label: "Central de Indicadores", icon: Gauge },
   { href: "/ia-impulso", label: "IA Impulso", icon: Bot },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
+  { href: "/alterar-senha", label: "Alterar Senha", icon: KeyRound },
 ];
 
 // Operador only sees this subset (matches the proxy.ts allowlist).
