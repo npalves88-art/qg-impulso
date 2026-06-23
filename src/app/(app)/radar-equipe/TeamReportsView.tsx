@@ -57,9 +57,13 @@ export default function TeamReportsView({ reports }: { reports: TeamReport[] }) 
           </thead>
           <tbody>
             {reports.map((r, i) => (
-              <tr key={`${r.employeeName}-${r.date}-${i}`} className="border-t border-white/5">
+              <tr
+                key={`${r.employeeName}-${r.date}-${i}`}
+                onClick={() => setSelected(r)}
+                className="border-t border-white/5 cursor-pointer hover:bg-white/5 transition"
+              >
                 <td className="py-2.5">{r.date}</td>
-                <td className="py-2.5 font-medium">{r.employeeName}</td>
+                <td className="py-2.5 font-medium text-[#FF6B00] hover:underline">{r.employeeName}</td>
                 <td className="py-2.5 text-[#F5F3EF]/60">{r.cliente || "-"}</td>
                 <td className="py-2.5">{r.skus.length}</td>
                 <td className="py-2.5">
@@ -69,7 +73,10 @@ export default function TeamReportsView({ reports }: { reports: TeamReport[] }) 
                 </td>
                 <td className="py-2.5 text-right">
                   <button
-                    onClick={() => setSelected(r)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelected(r);
+                    }}
                     className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition"
                   >
                     Ver relatório
