@@ -1,4 +1,5 @@
 import { query } from "./db";
+import { dateBR } from "./date-br";
 
 function lastNDates(n: number) {
   const days: string[] = [];
@@ -6,7 +7,7 @@ function lastNDates(n: number) {
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    days.push(d.toISOString().slice(0, 10));
+    days.push(dateBR(d));
   }
   return days;
 }

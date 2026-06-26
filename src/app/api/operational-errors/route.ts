@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { todayBR } from "@/lib/date-br";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
       description || null,
       Number(estimated_cost) || 0,
       Number(sla_hours) || 48,
-      new Date().toISOString().slice(0, 10),
+      todayBR(),
     ]
   );
 

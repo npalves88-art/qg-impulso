@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { todayBR } from "@/lib/date-br";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   await query(
     `INSERT INTO employees (company_id, name, role, area, email, admission_date, status)
      VALUES ($1, $2, $3, $4, $5, $6, 'ativo')`,
-    [session.companyId, name, role, area, email || null, new Date().toISOString().slice(0, 10)]
+    [session.companyId, name, role, area, email || null, todayBR()]
   );
 
   return NextResponse.json({ ok: true });

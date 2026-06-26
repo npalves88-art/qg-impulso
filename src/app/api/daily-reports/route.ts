@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { generateDailyReportAnalysis } from "@/lib/daily-report-analysis";
+import { todayBR } from "@/lib/date-br";
 
 type SkuEntry = { sku_code: string; product_name: string; activities: string[]; observacao: string };
 type PendenciaEntry = { sku_code: string; motivo: string };
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     ? Number(body.self_score)
     : null;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBR();
 
   const analysis = generateDailyReportAnalysis({
     employeeName: session.name,

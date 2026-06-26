@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import { getIntegration, saveTokens, recordSync, IntegrationRow } from "./store";
+import { dateBR, todayBR } from "@/lib/date-br";
 
 const AUTH_BASE = "https://auth.mercadolivre.com.br/authorization";
 const API_BASE = "https://api.mercadolibre.com";
@@ -184,7 +185,7 @@ export async function syncMercadoLivre(companyId: number) {
       const visits = (await authedFetch(`/items/${itemId}/visits/time_window?last=1&unit=day`, accessToken)) as {
         total_visits?: number;
       };
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayBR();
       const existingMetric = (
         await query<{ id: number }>(`SELECT id FROM ad_metrics WHERE ad_id = $1 AND date = $2`, [adId, today])
       )[0];
@@ -234,7 +235,7 @@ export async function syncMercadoLivreAdvertising(companyId: number, accessToken
   const advertisers = advertisersData.advertisers || [];
   if (advertisers.length === 0) return 0;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayBR();
   let updated = 0;
 
   for (const advertiser of advertisers) {
@@ -339,7 +340,7 @@ export async function recordOrderUpdate(companyId: number, order: any) {
     status: "active",
   });
 
-  const date = order.date_created ? String(order.date_created).slice(0, 10) : new Date().toISOString().slice(0, 10);
+  const date = order.date_created ? String(order.date_created).slice(0, 10) : todayBR();
   const revenue = order.total_amount || orderItem.unit_price * orderItem.quantity;
 
   const existingMetric = (
