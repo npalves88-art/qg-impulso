@@ -136,14 +136,22 @@ export async function upsertProductAndAdFromItem(companyId: number, item: any) {
 
   if (!ad) {
     const insertedAd = await query<{ id: number }>(
-      `INSERT INTO ads (product_id, marketplace_id, title, status, health_score) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [product.id, mlMarketplaceId, item.title, item.status === "active" ? "ativo" : "pausado", item.health ? Math.round(item.health * 100) : 70]
+      `INSERT INTO ads (product_id, marketplace_id, title, status, health_score, external_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [
+        product.id,
+        mlMarketplaceId,
+        item.title,
+        item.status === "active" ? "ativo" : "pausado",
+        item.health ? Math.round(item.health * 100) : 70,
+        item.id || null,
+      ]
     );
     ad = { id: insertedAd[0].id };
   } else {
-    await query(`UPDATE ads SET title = $1, status = $2 WHERE id = $3`, [
+    await query(`UPDATE ads SET title = $1, status = $2, external_id = COALESCE($3, external_id) WHERE id = $4`, [
       item.title,
       item.status === "active" ? "ativo" : "pausado",
+      item.id || null,
       ad.id,
     ]);
   }
@@ -204,9 +212,88 @@ export async function syncMercadoLivre(companyId: number) {
     console.error("Erro ao sincronizar histórico de pedidos do Mercado Livre:", err);
   }
 
-  const summary = `${importedAds} anúncio(s), ${importedMetrics} métrica(s) e ${importedOrders} pedido(s) sincronizados.`;
+  let importedAdMetrics = 0;
+  try {
+    importedAdMetrics = await syncMercadoLivreAdvertising(companyId, accessToken);
+  } catch (err) {
+    console.error("Erro ao sincronizar métricas de publicidade do Mercado Livre:", err);
+  }
+
+  const summary = `${importedAds} anúncio(s), ${importedMetrics} métrica(s), ${importedOrders} pedido(s) e ${importedAdMetrics} métrica(s) de publicidade sincronizados.`;
   await recordSync(companyId, "mercado_livre", summary);
-  return { importedAds, importedMetrics, importedOrders, summary };
+  return { importedAds, importedMetrics, importedOrders, importedAdMetrics, summary };
+}
+
+// Mercado Ads / Product Ads metrics (impressions, clicks) for sponsored listings.
+// Separate API from the regular items endpoints; only returns data if the seller
+// actually runs paid campaigns.
+export async function syncMercadoLivreAdvertising(companyId: number, accessToken: string) {
+  const advertisersData = (await authedFetch("/advertising/advertisers?product_id=PADS", accessToken)) as {
+    advertisers?: { advertiser_id: number }[];
+  };
+  const advertisers = advertisersData.advertisers || [];
+  if (advertisers.length === 0) return 0;
+
+  const today = new Date().toISOString().slice(0, 10);
+  let updated = 0;
+
+  for (const advertiser of advertisers) {
+    const adsData = (await authedFetch(
+      `/advertising/product_ads/ads/search?advertiser_id=${advertiser.advertiser_id}&limit=50`,
+      accessToken
+    )) as { results?: { item_id: string }[] };
+
+    for (const ad of adsData.results || []) {
+      let metrics: any;
+      try {
+        metrics = await authedFetch(
+          `/advertising/product_ads/ads/${ad.item_id}?advertiser_id=${advertiser.advertiser_id}&date_from=${today}&date_to=${today}&metrics_summary=true`,
+          accessToken
+        );
+      } catch (err) {
+        console.error(`Erro ao buscar métricas de publicidade do item ${ad.item_id}:`, err);
+        continue;
+      }
+
+      const summaryMetrics = metrics?.metrics_summary || metrics?.metrics || {};
+      const impressions = Number(summaryMetrics.prints || summaryMetrics.impressions || 0);
+      const clicks = Number(summaryMetrics.clicks || 0);
+      if (!impressions && !clicks) continue;
+
+      const matchedAd = (
+        await query<{ id: number }>(
+          `SELECT a.id FROM ads a
+           JOIN products p ON p.id = a.product_id
+           WHERE p.company_id = $1 AND a.external_id = $2 LIMIT 1`,
+          [companyId, String(ad.item_id)]
+        )
+      )[0];
+      if (!matchedAd) continue;
+
+      const existingMetric = (
+        await query<{ id: number }>(`SELECT id FROM ad_metrics WHERE ad_id = $1 AND date = $2`, [
+          matchedAd.id,
+          today,
+        ])
+      )[0];
+      if (existingMetric) {
+        await query(`UPDATE ad_metrics SET impressions = $1, clicks = $2 WHERE id = $3`, [
+          impressions,
+          clicks,
+          existingMetric.id,
+        ]);
+      } else {
+        await query(
+          `INSERT INTO ad_metrics (ad_id, date, impressions, views, visits, clicks, orders, revenue)
+           VALUES ($1, $2, $3, 0, 0, $4, 0, 0)`,
+          [matchedAd.id, today, impressions, clicks]
+        );
+      }
+      updated++;
+    }
+  }
+
+  return updated;
 }
 
 export async function fetchItem(accessToken: string, itemId: string) {

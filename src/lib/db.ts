@@ -664,6 +664,13 @@ async function migrateCompanyLogo(pool: Pool) {
   await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url TEXT;`);
 }
 
+async function migrateAdsExternalId(pool: Pool) {
+  await pool.query(`
+    ALTER TABLE ads ADD COLUMN IF NOT EXISTS external_id TEXT;
+    CREATE INDEX IF NOT EXISTS ads_external_id_idx ON ads (external_id);
+  `);
+}
+
 export async function ensureSchemaAndSeed(): Promise<void> {
   const pool = await getPool();
   await createSchema(pool);
@@ -671,6 +678,7 @@ export async function ensureSchemaAndSeed(): Promise<void> {
   await migrateEmployeesUsersUnification(pool);
   await migrateDailyReportsExtraColumns(pool);
   await migrateCompanyLogo(pool);
+  await migrateAdsExternalId(pool);
 }
 
 function ensureInit(): Promise<void> {
