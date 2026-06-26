@@ -671,6 +671,13 @@ async function migrateAdsExternalId(pool: Pool) {
   `);
 }
 
+async function migrateComplaintsExternalId(pool: Pool) {
+  await pool.query(`
+    ALTER TABLE complaints ADD COLUMN IF NOT EXISTS external_id TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS complaints_external_id_idx ON complaints (external_id) WHERE external_id IS NOT NULL;
+  `);
+}
+
 export async function ensureSchemaAndSeed(): Promise<void> {
   const pool = await getPool();
   await createSchema(pool);
@@ -679,6 +686,7 @@ export async function ensureSchemaAndSeed(): Promise<void> {
   await migrateDailyReportsExtraColumns(pool);
   await migrateCompanyLogo(pool);
   await migrateAdsExternalId(pool);
+  await migrateComplaintsExternalId(pool);
 }
 
 function ensureInit(): Promise<void> {

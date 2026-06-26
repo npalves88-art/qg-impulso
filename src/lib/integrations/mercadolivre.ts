@@ -220,9 +220,52 @@ export async function syncMercadoLivre(companyId: number) {
     console.error("Erro ao sincronizar métricas de publicidade do Mercado Livre:", err);
   }
 
-  const summary = `${importedAds} anúncio(s), ${importedMetrics} métrica(s), ${importedOrders} pedido(s) e ${importedAdMetrics} métrica(s) de publicidade sincronizados.`;
+  let importedClaims = 0;
+  try {
+    importedClaims = await syncMercadoLivreClaims(companyId, accessToken, sellerId);
+  } catch (err) {
+    console.error("Erro ao sincronizar reclamações do Mercado Livre:", err);
+  }
+
+  const summary = `${importedAds} anúncio(s), ${importedMetrics} métrica(s), ${importedOrders} pedido(s), ${importedAdMetrics} métrica(s) de publicidade e ${importedClaims} reclamação(ões) sincronizados.`;
   await recordSync(companyId, "mercado_livre", summary);
-  return { importedAds, importedMetrics, importedOrders, importedAdMetrics, summary };
+  return { importedAds, importedMetrics, importedOrders, importedAdMetrics, importedClaims, summary };
+}
+
+// Post-purchase claims (reclamações abertas pelo comprador) registradas contra o vendedor.
+export async function syncMercadoLivreClaims(companyId: number, accessToken: string, sellerId: string) {
+  const claimsData = (await authedFetch(
+    `/post-purchase/v1/claims/search?player.user_id=${sellerId}&player.role=respondent&limit=50`,
+    accessToken
+  )) as { data?: any[] };
+
+  const claims = claimsData.data || [];
+  const mlMarketplaceId = getMlMarketplaceId();
+  let imported = 0;
+
+  for (const claim of claims) {
+    const claimId = String(claim.id);
+    const existing = (
+      await query<{ id: number }>(`SELECT id FROM complaints WHERE company_id = $1 AND external_id = $2`, [
+        companyId,
+        claimId,
+      ])
+    )[0];
+    if (existing) continue;
+
+    const status = claim.status === "closed" ? "resolvida" : "aberta";
+    const severity = claim.stage === "dispute" ? "alta" : "media";
+    const date = claim.date_created ? String(claim.date_created).slice(0, 10) : todayBR();
+
+    await query(
+      `INSERT INTO complaints (company_id, product_id, marketplace_id, reason, severity, status, date, external_id)
+       VALUES ($1, NULL, $2, $3, $4, $5, $6, $7)`,
+      [companyId, mlMarketplaceId, claim.type || claim.reason_id || "Reclamação Mercado Livre", severity, status, date, claimId]
+    );
+    imported++;
+  }
+
+  return imported;
 }
 
 // Mercado Ads / Product Ads metrics (impressions, clicks) for sponsored listings.
