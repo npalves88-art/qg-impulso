@@ -235,7 +235,7 @@ export async function syncMercadoLivre(companyId: number) {
 // Post-purchase claims (reclamações abertas pelo comprador) registradas contra o vendedor.
 export async function syncMercadoLivreClaims(companyId: number, accessToken: string, sellerId: string) {
   const claimsData = (await authedFetch(
-    `/post-purchase/v1/claims/search?player.user_id=${sellerId}&player.role=respondent&limit=50`,
+    `/post-purchase/v1/claims/search?seller_id=${sellerId}&limit=50`,
     accessToken
   )) as { data?: any[] };
 
